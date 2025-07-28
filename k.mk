@@ -4,7 +4,7 @@ EMACS_PREFIX ?= $(HOME)/.local/emacs
 JOBS ?= $(shell sysclt -n hw.ncpu 2>/dev/null || nproc)
 BREW := $(shell command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)
 
-.PHONY: all Darwin ubuntu deps configure build install
+.PHONY: all Darwin Linux deps configure build install
 
 all: $(OS)
 Darwin: deps configure build install
@@ -52,19 +52,27 @@ build:
 	@echo "✅ Emacs.app built"
 
 
-# Common Ubuntu build target (with GTK GUI + SQLite)
-ubuntu:
-	sudo apt-get update && \
-	sudo apt-get install -y \
-		autoconf automake build-essential texinfo libgtk-3-dev libjansson-dev \
-		libgnutls28-dev libgccjit-10-dev pkg-config libsqlite3-dev && \
+# Ubuntu build target (with GTK GUI + SQLite)
+Linux: ldeps
 	./autogen.sh && \
+	LDFLAGS="-L/usr/lib/gcc/x86_64-linux-gnu/13" \
+	CPPFLAGS="-I/usr/lib/gcc/x86_64-linux-gnu/13/include" \
 	./configure --with-x-toolkit=gtk3 --with-json --with-modules \
 	            --with-native-compilation --with-sqlite3 && \
 	make -j$(JOBS)
 	@echo "✅ Emacs.gtk built"
 
 	# sudo make install
+
+
+ldeps:
+	sudo apt update && \
+	sudo apt install -y \
+		autoconf automake build-essential \
+		texinfo libgtk-3-dev libjansson-dev libncurses-dev \
+		libgnutls28-dev pkg-config \
+		libsqlite3-dev libgccjit-13-dev \
+		libxpm-dev libgif-dev libjpeg-dev libpng-dev
 
 install:
 	sudo ln -snf $(CURDIR)/src/emacs /opt/homebrew/bin/emacs
