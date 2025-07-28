@@ -60,9 +60,9 @@ Linux: ldeps
 	./configure --with-x-toolkit=gtk3 --with-json --with-modules \
 	            --with-native-compilation --with-sqlite3 && \
 	make -j$(JOBS)
-	@echo "✅ Emacs.gtk built"
-
-	# sudo make install
+	@echo "✅ emacs-gtk built"
+	sudo ln -snf $(CURDIR)/src/emacs /usr/local/bin/emacs
+	@echo "✅ $(CURDIR)/src/emacs => /usr/local/bin/emacs"
 
 
 ldeps:
@@ -72,11 +72,9 @@ ldeps:
 		texinfo libgtk-3-dev libjansson-dev libncurses-dev \
 		libgnutls28-dev pkg-config \
 		libsqlite3-dev libgccjit-13-dev \
-		libxpm-dev libgif-dev libjpeg-dev libpng-dev
+		libxpm-dev libgif-dev libjpeg-dev libpng-dev \
+		libtool libtool-bin
 
 install:
 	sudo ln -snf $(CURDIR)/src/emacs /opt/homebrew/bin/emacs
 	@echo "✅ $(CURDIR)/src/emacs => /opt/homebrew/bin/emacs"
-
-#	sudo ln -snf $(CURDIR)/src/emacs /usr/local/bin/emacs
-#	@echo "✅ $(CURDIR)/src/emacs => /usr/local/bin/emacs"
