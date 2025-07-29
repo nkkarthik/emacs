@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>em</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/knannuru/e/nextstep/Emacs.app/Contents/MacOS/Emacs</string>
+        <string>--fg-daemon</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/e.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/e.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>LIBRARY_PATH</key>
+        <string>/opt/homebrew/lib/gcc/13:/opt/homebrew/lib</string>
+        <key>CPATH</key>
+        <string>/opt/homebrew/include</string>
+    </dict>
+</dict>
+</plist>

@@ -9,6 +9,18 @@
 ;;(set-face-attribute 'tab-line nil :family "SF Mono" :height 120)
 
 
+(defun my/maybe-delete-frame ()
+  "Delete frame on Cmd+Q if running as daemon, otherwise kill terminal."
+  (interactive)
+  (if (and (daemonp) (not (eq (selected-frame) (car (frame-list)))))
+      (delete-frame)
+    (save-buffers-kill-terminal)))
+
+;; Remap Cmd+Q behavior (GUI only)
+(global-set-key (kbd "s-q") #'my/maybe-delete-frame)
+
+
+
 ;; Move native compilation cache out of .emacs.d (to ~/.cache)
 (when (fboundp 'startup-redirect-eln-cache)
   (startup-redirect-eln-cache (expand-file-name "emacs/eln" (or (getenv "XDG_CACHE_HOME") "~/.cache"))))

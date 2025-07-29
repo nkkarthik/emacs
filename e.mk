@@ -4,13 +4,13 @@ EMACS_PREFIX ?= $(HOME)/.local/emacs
 JOBS ?= $(shell sysclt -n hw.ncpu 2>/dev/null || nproc)
 BREW := $(shell command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)
 
-.PHONY: all Darwin Linux deps configure build install userdir
+.PHONY: all Darwin Linux deps configure build userdir
 
 
 all: $(OS)
 
 
-Darwin: deps configure build install userdir
+Darwin: deps configure build userdir
 
 userdir:
 	mkdir -p $(HOME)/.emacs.d/
@@ -47,6 +47,7 @@ brew-install:
 configure:
 	@echo "⚙️ Running autogen.sh and configure..."
 	./autogen.sh
+	PKG_CONFIG_PATH="/opt/homebrew/opt/gcc/lib/pkgconfig" \
 	./configure --with-ns \
 	            --with-modules \
 	            --with-json \
@@ -59,19 +60,19 @@ build:
 	@echo "🔨 Building Emacs.app with $(EMACS_CORES) cores..."
 	make -j$(EMACS_CORES)
 	@echo "✅ Emacs.app built"
+	make install
+	@echo "✅ Emacs.app install"
 
 
 # Ubuntu build target (with GTK GUI + SQLite)
 Linux: ldeps
-	./autogen.sh && \
+	./autogen.sh
 	LDFLAGS="-L/usr/lib/gcc/x86_64-linux-gnu/13" \
 	CPPFLAGS="-I/usr/lib/gcc/x86_64-linux-gnu/13/include" \
 	./configure --with-x-toolkit=gtk3 --with-json --with-modules \
 	            --with-native-compilation --with-sqlite3 && \
 	make -j$(JOBS)
 	@echo "✅ emacs-gtk built"
-	sudo ln -snf $(CURDIR)/src/emacs /usr/local/bin/emacs
-	@echo "✅ $(CURDIR)/src/emacs => /usr/local/bin/emacs"
 
 
 ldeps:
@@ -84,6 +85,50 @@ ldeps:
 		libxpm-dev libgif-dev libjpeg-dev libpng-dev \
 		libtool libtool-bin
 
-install:
+.PHONY: local-bin brew-bin
+local-bin:
+	sudo ln -snf $(CURDIR)/src/emacs /usr/local/bin/emacs
+	@echo "✅ $(CURDIR)/src/emacs => /usr/local/bin/emacs"
+	sudo ln -snf $(CURDIR)/lib-src/emacsclient /usr/local/bin/emacsclient
+	@echo "✅ $(CURDIR)/lib-src/emacsclient => /usr/local/bin/emacsclient"
+brew-bin:
 	sudo ln -snf $(CURDIR)/src/emacs /opt/homebrew/bin/emacs
 	@echo "✅ $(CURDIR)/src/emacs => /opt/homebrew/bin/emacs"
+	sudo ln -snf $(CURDIR)/lib-src/emacsclient /opt/homebrew/bin/emacsclient
+	@echo "✅ $(CURDIR)/lib-src/emacsclient => /opt/homebrew/bin/emacsclient"
+
+.PHONY: launch
+launch:
+	mkdir -p $(HOME)/Library/LaunchAgents/
+	cp $(CURDIR)/e.plist $(HOME)/Library/LaunchAgents/
+	@echo "🚀 Starting Emacs daemon..."
+	@launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/e.plist 2>/dev/null || true
+	@launchctl enable gui/$$(id -u)/local.emacs.daemon
+	@sleep 2
+	@echo "✅ Emacs daemon started!"
+	@echo "💡 Test with: emacsclient -c"
+
+.PHONY: system
+system:
+	mkdir -p $(HOME)/.config/systemd/user/
+	cp $(CURDIR)/e.service $(HOME)/.config/systemd/user/e.service
+	@echo "🚀 Starting Emacs daemon..."
+	# Start and enable on login
+	systemctl --user enable e.service
+	systemctl --user start e.service
+	sudo loginctl enable-linger knannuru
+
+
+# to start the daemon on boot without user login
+#sudo loginctl enable-linger $USER
+
+
+# Stop and disable
+#systemctl --user stop emacs.service
+#systemctl --user disable emacs.service
+
+# Restart
+#systemctl --user restart emacs.service
+
+# Check status
+#systemctl --user status emacs.service

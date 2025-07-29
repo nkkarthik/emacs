@@ -1,0 +1,29 @@
+[Unit]
+Description=Emacs text editor daemon
+Documentation=info:emacs man:emacs(1) https://gnu.org/software/emacs/
+# After=default.target
+
+[Service]
+Type=notify
+ExecStart=%h/e/src/emacs --fg-daemon
+ExecStop=%h/e/lib-src/emacsclient --eval "(kill-emacs)" || /bin/true
+Restart=on-failure
+RestartSec=5
+
+# Essential environment variables for GUI support
+Environment=DISPLAY=:0
+Environment=PATH=%h/bin:/usr/local/bin:/usr/bin:/bin
+
+# Wayland support (uncomment if using Wayland)
+# Environment=WAYLAND_DISPLAY=wayland-0
+# Environment=XDG_SESSION_TYPE=wayland
+
+# Custom library paths (adjust as needed)
+# Environment=LD_LIBRARY_PATH=/usr/local/lib:/usr/lib/x86_64-linux-gnu
+
+# For native compilation with custom libgccjit
+# Environment=LIBRARY_PATH=/usr/lib/gcc/11
+# Environment=CPATH=/usr/include
+
+[Install]
+WantedBy=default.target
