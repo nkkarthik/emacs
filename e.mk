@@ -61,7 +61,7 @@ build:
 	make -j$(EMACS_CORES)
 	@echo "✅ Emacs.app built"
 	make install
-	@echo "✅ Emacs.app install"
+	@echo "✅ Emacs.app installed"
 
 
 # Ubuntu build target (with GTK GUI + SQLite)
@@ -74,6 +74,9 @@ Linux: ldeps
 	make -j$(JOBS)
 	@echo "✅ emacs-gtk built"
 
+#	make install
+#	@echo "✅ emacs-gtk installed"
+
 
 ldeps:
 	sudo apt update && \
@@ -83,7 +86,8 @@ ldeps:
 		libgnutls28-dev pkg-config \
 		libsqlite3-dev libgccjit-13-dev \
 		libxpm-dev libgif-dev libjpeg-dev libpng-dev \
-		libtool libtool-bin
+		libtool libtool-bin libsystemd-dev libtree-sitter-dev
+	@echo "✅ ldeps installed"
 
 .PHONY: local-bin brew-bin
 local-bin:
@@ -112,11 +116,12 @@ launch:
 system:
 	mkdir -p $(HOME)/.config/systemd/user/
 	cp $(CURDIR)/e.service $(HOME)/.config/systemd/user/e.service
-	@echo "🚀 Starting Emacs daemon..."
+	@echo "Starting Emacs daemon..."
 	# Start and enable on login
 	systemctl --user enable e.service
 	systemctl --user start e.service
 	sudo loginctl enable-linger knannuru
+	@echo "🚀 Started"
 
 
 # to start the daemon on boot without user login
