@@ -4,17 +4,26 @@ EMACS_PREFIX ?= $(HOME)/.local/emacs
 JOBS ?= $(shell sysclt -n hw.ncpu 2>/dev/null || nproc)
 BREW := $(shell command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)
 
-.PHONY: all Darwin Linux deps configure build install
+.PHONY: all Darwin Linux deps configure build install userdir
+
 
 all: $(OS)
-Darwin: deps configure build install
+
+
+Darwin: deps configure build install userdir
+
+userdir:
+	mkdir -p $(HOME)/.emacs.d/
+	ln -snf $(CURDIR)/init.el $(HOME)/.emacs.d/init.el
+	ln -snf $(CURDIR)/early-init.el $(HOME)/.emacs.d/early-init.el
+
 
 deps: brew-check
 	@echo "🔧 Installing dependencies with Homebrew..."
 	$(BREW) install autoconf automake texinfo pkg-config \
 		gnutls libjpeg libpng librsvg libtiff libxpm \
 		ncurses mailutils libxml2 jansson sqlite imagemagick tree-sitter \
-		gcc libgccjit
+		gcc libgccjit cmake libtool
 
 brew-check:
 	@echo "🔍 Checking if Homebrew is available..."
