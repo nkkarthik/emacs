@@ -243,6 +243,17 @@
   (define-key evil-normal-state-map (kbd "C-k") #'k/action-repeat))
 
 
+(defun k/vpn ()
+  "connect this machine to vpn"
+  (interactive)
+  (async-shell-command "make -C ~/m/vpn" "*k*"))
+
+(defun k/vpnk ()
+  "connect k machine to vpn"
+  (interactive)
+  (async-shell-command "make -C ~/m/vpn k" "*k*"))
+
+
 
 ;; Enhanced leader key bindings
 (leader-def
