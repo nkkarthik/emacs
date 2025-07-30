@@ -1,0 +1,192 @@
+# ===============================
+# OS-specific files
+# ===============================
+*~
+\#*\#
+.\#*
+*.fasl
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+desktop.ini
+
+# ===============================
+# IDEs and editors
+# ===============================
+.idea/                # IntelliJ / WebStorm
+*.iml
+.vscode/              # VS Code
+*.swp                 # Vim swap
+*.swo
+*.kate-swp
+*.bak                 # Editor backups
+*~                    # General backup suffixes
+
+# ===============================
+# xcode
+# ===============================
+# Xcode
+.DS_Store
+*/build/*
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+a.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# But keep shared data
+!*.xcworkspace/xcshareddata/
+!*.xcodeproj/xcshareddata/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj/f.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
+# CocoaPods
+Pods/
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# Carthage
+Carthage/Build/
+
+# Build artifacts
+build/
+*.dSYM.zip
+*.dSYM
+
+
+# ===============================
+# Build output
+# ===============================
+build/
+dist/
+out/
+target/
+*.class
+*.o
+*.so
+*.exe
+*.dll
+*.pyc
+__pycache__/
+
+# ===============================
+# Language-specific dependencies
+# ===============================
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log
+.pnpm-store/
+
+# Python
+.venv/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Go
+bin/
+pkg/
+*.test
+*.coverprofile
+
+# Java/Maven/Gradle
+.gradle/
+build/
+target/
+dependency-reduced-pom.xml
+log/
+
+# Rust
+target/
+Cargo.lock
+
+# ===============================
+# Project-specific secrets/config
+# ===============================
+.env
+.env.*
+*.env.local
+*.envrc
+*.pem
+*.key
+secrets/
+vault/
+config/secret-*.json
+credentials
+
+# ===============================
+# Container & VM tools
+# ===============================
+.docker/
+docker-compose.override.yml
+*.tar
+*.qcow2
+*.vagrant/
+
+# ===============================
+# Git & version control noise
+# ===============================
+*.orig
+*.patch
+*.rej
+
+# ===============================
+# Logs and runtime
+# ===============================
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# ===============================
+# Coverage and test output
+# ===============================
+coverage/
+*.lcov
+.nyc_output/
+test-results/
+junit-*.xml
+coverage-final.json
+
+# ===============================
+# Miscellaneous
+# ===============================
+*.tmp
+*.bak
+*.old
+*.zip
+*.tgz
+*.gz
+*.7z
+*.rar
+
+# ===============================
+# Exceptions (whitelisting)
+# ===============================
+!.gitignore
+!.gitattributes
+!.env.example
+

@@ -1,0 +1,11 @@
+
+// Common build settings for all targets
+// In each project's build settings, reference the shared config
+// Set "Based on Configuration File" to ../shared/xcconfig/Common.xcconfig
+
+//SWIFT_VERSION = 5.0
+//IPHONEOS_DEPLOYMENT_TARGET = 14.0
+//GCC_TREAT_WARNINGS_AS_ERRORS = YES
+//CLANG_WARN_DOCUMENTATION_COMMENTS = YES
+//CLANG_WARN_BOOL_CONVERSION = YES
+//CLANG_WARN_CONSTANT_CONVERSION = YES

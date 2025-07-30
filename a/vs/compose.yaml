@@ -1,0 +1,42 @@
+# vs
+services:
+  vs:
+    build: .
+    container_name: vs
+    environment:
+      USER: knannuru
+      HOME: /home/knannuru
+    volumes:
+      - /home/knannuru:/k
+      - /home/knannuru/a:/home/knannuru/a
+      - /home/knannuru/nv:/home/knannuru/nv
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    tty: true
+    privileged: true
+    network_mode: host
+
+  tls:
+    build: tlsproxy
+    container_name: tls
+    restart: unless-stopped
+    tty: true
+    privileged: true
+    network_mode: host
+
+  # e:
+  #   build: .
+  #   container_name: e
+  #   environment:
+  #     USER: knannuru
+  #     HOME: /home/knannuru
+  #     EMACS: true
+  #   volumes:
+  #     - /home/knannuru:/k
+  #     - /home/knannuru/a:/home/knannuru/a
+  #     - /home/knannuru/nv:/home/knannuru/nv
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   restart: unless-stopped
+  #   tty: true
+  #   privileged: true
+ 

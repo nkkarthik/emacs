@@ -1,0 +1,60 @@
+{
+  "name": "k",
+  "displayName": "k",
+  "description": "k",
+  "version": "0.5.5",
+  "publisher": "k",
+  "repository": {},
+  "engines": {
+    "vscode": "^1.99.3"
+  },
+  "activationEvents": [
+    "onCommand:vscode-shell-executor.activate"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "k.executeSelectedLine",
+        "title": "KExec"
+      },
+      {
+        "command": "k.rerun",
+        "title": "KRerun"
+      },
+      {
+        "command": "k.point",
+        "title": "KPoint"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "k.executeSelectedLine",
+        "key": "ctrl+j",
+        "when": "editorTextFocus"
+      },{
+        "command": "k.rerun",
+        "key": "ctrl+k",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "k.point",
+        "key": "g f",
+        "when": "editorTextFocus && vim.mode == 'Normal'"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.99.3",
+    "jest": "^30.0.4",
+    "typescript": "5.8.3",
+    "vsce": "^2.15.0"
+  }
+}

@@ -1,0 +1,29 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>com.github.nkkarthik.k</id>
+    <name>k</name>
+    <vendor>nkkarthik</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
+
+    <resource-bundle>messages.MyBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow factoryClass="com.github.nkkarthik.k.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
+        <postStartupActivity implementation="com.github.nkkarthik.k.startup.MyProjectActivity" />
+    </extensions>
+    <actions>
+        <action id="com.github.nkkarthik.k.KAction"
+                class="com.github.nkkarthik.k.KAction"
+                text="KAction"
+                description="KAction">
+            <!-- https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html#idea-plugin__actions__action__mouse-shortcut -->
+            <!-- shift control meta alt button1/2/3 doubleClick      -->
+            <!--            <keyboard-shortcut keymap="$default" first-keystroke="meta ENTER"/>-->
+            <!--            <keyboard-shortcut keymap="$default" first-keystroke="meta ENTER"/>-->
+<!--            <keyboard-shortcut keymap="$default" first-keystroke="control J" replace-all="true"/>-->
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="control J" replace-all="true"/>
+        </action>
+    </actions>
+</idea-plugin>

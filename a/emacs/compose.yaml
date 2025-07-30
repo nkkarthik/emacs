@@ -1,0 +1,51 @@
+# vs
+services:
+  e:
+    build: .
+    environment:
+      USER: knannuru
+      HOME: /home/knannuru
+    volumes:
+      - /home/knannuru/.ssh:/home/knannuru/.ssh
+      - /home/knannuru/a/emacs:/home/knannuru/.emacs.d
+      - /home/knannuru/k:/home/knannuru/k
+      - /home/knannuru/a:/home/knannuru/a
+      - /home/knannuru/gh:/home/knannuru/gh
+      - /home/knannuru/nv:/home/knannuru/nv
+      - /z:/home/knannuru/z
+      - /var/run/docker.sock:/var/run/docker.sock
+      - quicklisp:/home/knannuru/quicklisp
+    restart: unless-stopped
+    tty: true
+    privileged: true
+    network_mode: host
+
+volumes:
+  quicklisp:
+
+  # tls:
+  #   build: tlsproxy
+  #   container_name: tls
+  #   restart: unless-stopped
+  #   tty: true
+  #   privileged: true
+  #   network_mode: host
+
+  # tty:
+  #   build: .
+  #   image: k:latest
+  #   container_name: tty
+  #   environment:
+  #     TTYD: yes
+  #     USER: knannuru
+  #     HOME: /home/knannuru
+  #   volumes:
+  #     - /home/knannuru/k:/home/knannuru/k
+  #     - /home/knannuru/gh:/home/knannuru/gh
+  #     - /home/knannuru/nv:/home/knannuru/nv
+  #     - /z:/z
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   restart: unless-stopped
+  #   tty: true
+  #   privileged: true
+  #   network_mode: host
