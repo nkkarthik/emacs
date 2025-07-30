@@ -9,17 +9,6 @@
 ;;(set-face-attribute 'tab-line nil :family "SF Mono" :height 120)
 
 
-(defun my/maybe-delete-frame ()
-  "Delete frame on Cmd+Q if running as daemon, otherwise kill terminal."
-  (interactive)
-  (if (and (daemonp) (not (eq (selected-frame) (car (frame-list)))))
-      (delete-frame)
-    (save-buffers-kill-terminal)))
-
-;; Remap Cmd+Q behavior (GUI only)
-(global-set-key (kbd "s-q") #'my/maybe-delete-frame)
-
-
 
 ;; Move native compilation cache out of .emacs.d (to ~/.cache)
 (when (fboundp 'startup-redirect-eln-cache)
@@ -55,7 +44,7 @@
 
 ;; vterm is a real terminal using libvterm
 (setq vterm-always-compile-module t)
-(use-package vterm :ensure t)
+(use-package vterm)
 
 ;; Evil mode configuration
 (use-package evil
@@ -116,24 +105,20 @@
 
 ;; Vertico - Better vertical completion UI
 (use-package vertico
-  :straight t
   :init
   (vertico-mode))
 ;; Orderless - Better completion matching
 (use-package orderless
-  :straight t
   :custom
   (completion-styles '(orderless basic))
   (completion-category-overrides '((file (styles basic partial-completion)))))
 ;; Marginalia - Rich annotations in minibuffer
 (use-package marginalia
-  :straight t
   :init
   (marginalia-mode))
 
 ;; Consult - Enhanced search and navigation commands
 (use-package consult
-  :straight t
   :bind (("C-x b" . consult-buffer)
          ("C-c h" . consult-history))
   :config
@@ -143,7 +128,6 @@
 
 ;; Embark - Contextual actions
 (use-package embark
-  :straight t
   :bind
   (("C-." . embark-act)
    ("C-;" . embark-dwim)
@@ -152,14 +136,12 @@
   (setq prefix-help-command #'embark-prefix-help-command))
 
 (use-package embark-consult
-  :straight t
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 
 
 ;; Corfu - In-buffer completion popup
 (use-package corfu
-  :straight t
   :custom
   (corfu-auto t)
   (corfu-cycle t)
@@ -173,7 +155,6 @@
 
 ;; Cape - Additional completion backends
 (use-package cape
-  :straight t
   :init
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
@@ -181,7 +162,6 @@
 
 ;; Magit - Git interface
 (use-package magit
-  :straight t
   :commands magit-status
   :custom
   (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
@@ -189,7 +169,6 @@
 
 ;; Evil integration for Magit
 (use-package evil-magit
-  :straight t
   :after (evil magit))
 
 
@@ -206,13 +185,39 @@
   )
 
 (use-package sly
-  :ensure t
   :config
   (setq inferior-lisp-program "sbcl"))
 
 
+(use-package paredit
+  :init
+  (add-hook 'clojure-mode-hook #'enable-paredit-mode)
+  (add-hook 'cider-repl-mode-hook #'enable-paredit-mode)
+  (add-hook 'emacs-lisp-mode-hook #'enable-paredit-mode)
+  (add-hook 'eval-expression-minibuffer-setup-hook #'enable-paredit-mode)
+  (add-hook 'ielm-mode-hook #'enable-paredit-mode)
+  (add-hook 'lisp-mode-hook #'enable-paredit-mode)
+  (add-hook 'lisp-interaction-mode-hook #'enable-paredit-mode)
+  (add-hook 'scheme-mode-hook #'enable-paredit-mode)
+  :config
+  (show-paren-mode t)
+  ; :bind (("M-[" . paredit-wrap-square)
+  ;       ("M-{" . paredit-wrap-curly))
+  ; :diminish nil
+  )
 
-;; k funs
+;;; k funs
+
+(defun k/maybe-delete-frame ()
+  "Delete frame on Cmd+Q if running as daemon, otherwise kill terminal."
+  (interactive)
+  (if (and (daemonp) (not (eq (selected-frame) (car (frame-list)))))
+      (delete-frame)
+    (save-buffers-kill-terminal)))
+
+;; Remap Cmd+Q behavior (GUI only)
+(global-set-key (kbd "s-q") #'k/maybe-delete-frame)
+
 
 (defvar k-action-prev "" "holds previous k/action to repeat later")
 
