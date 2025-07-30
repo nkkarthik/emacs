@@ -1,6 +1,6 @@
 import Cocoa
 
 var greeting = "Hello, playground"
-var s = "fo"
+var s = "foo"
 s += "!"
 
