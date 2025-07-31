@@ -206,6 +206,17 @@
   ; :diminish nil
   )
 
+
+;;; org
+
+;; (require 'org-tempo)
+
+(setq org-confirm-babel-evaluate nil)
+
+;; Original value was ((emacs-lisp . t))
+;; (org-babel-do-load-languages 'org-babel-load-languages
+;;                             '((lisp . t)))
+
 ;;; k funs
 
 (defun k/maybe-delete-frame ()
