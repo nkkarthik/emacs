@@ -30,4 +30,5 @@ private/**           filter=git-crypt diff=git-crypt
 *.bin                filter=git-crypt diff=git-crypt
 
 # a
-a.md                filter=git-crypt diff=git-crypt
+dot                filter=git-crypt diff=git-crypt
+dot.el             filter=git-crypt diff=git-crypt
