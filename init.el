@@ -86,6 +86,12 @@
   (treemacs-filewatch-mode t)
   (treemacs-git-mode 'simple))
 
+(with-eval-after-load 'treemacs
+  (with-eval-after-load 'treemacs
+    (evil-define-key 'normal treemacs-mode-map (kbd "RET") #'treemacs-RET-action)
+    (evil-define-key 'emacs treemacs-mode-map (kbd "RET") #'treemacs-RET-action)))
+
+
 ;; Leader key bindings
 (leader-def
   "op" 'treemacs
