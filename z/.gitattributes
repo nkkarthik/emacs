@@ -32,3 +32,4 @@ private/**           filter=git-crypt diff=git-crypt
 # a
 dot                filter=git-crypt diff=git-crypt
 dot.el             filter=git-crypt diff=git-crypt
+dot.org             filter=git-crypt diff=git-crypt

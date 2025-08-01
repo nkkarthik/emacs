@@ -296,9 +296,9 @@
   "sp" '(consult-ripgrep :wk "search project")
   ;; Project
   "p" '(:ignore t :wk "project")
-  "pp" '(projectile-switch-project :wk "switch project")
-  "pf" '(projectile-find-file :wk "find file in project")
-  "pb" '(projectile-switch-to-buffer :wk "switch project buffer")
+  "pp" '(project-switch-project :wk "switch project")
+  "pf" '(project-find-file :wk "find file in project")
+  "pb" '(project-switch-to-buffer :wk "switch project buffer")
   ;; Git
   "g" '(:ignore t :wk "git")
   "gs" '(magit-status :wk "git status")
