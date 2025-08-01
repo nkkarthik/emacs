@@ -39,4 +39,3 @@ services:
   #   restart: unless-stopped
   #   tty: true
   #   privileged: true
- 

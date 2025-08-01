@@ -1,5 +1,5 @@
 
-# user 
+# user
 USERNAME=knannuru
 USER_UID=1001
 USER_GID=1001
@@ -26,7 +26,7 @@ alias v=nvim
 # start
 export SHELL=fish
 if [[ -v EMACS ]]; then
-    exec gosu knannuru gotty --port 10003 -w emacs 
+    exec gosu knannuru gotty --port 10003 -w emacs
 else
     exec gosu knannuru /home/.openvscode-server/bin/openvscode-server --port 30001 --connection-secret=/k/.openvscode-server-token
 fi

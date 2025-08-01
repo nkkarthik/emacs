@@ -1,0 +1,34 @@
+# ===============================
+# git-crypt encryption rules
+# ===============================
+
+# 🔐 Environment secrets
+*.env                filter=git-crypt diff=git-crypt
+.env.*               filter=git-crypt diff=git-crypt
+secrets/**           filter=git-crypt diff=git-crypt
+
+# 🔐 Private keys & certificates
+*.key                filter=git-crypt diff=git-crypt
+*.pem                filter=git-crypt diff=git-crypt
+*.crt                filter=git-crypt diff=git-crypt
+*.p12                filter=git-crypt diff=git-crypt
+
+# 🔐 Secret configuration files
+config/secret-*.json filter=git-crypt diff=git-crypt
+**/secrets.yaml      filter=git-crypt diff=git-crypt
+**/secrets.yml       filter=git-crypt diff=git-crypt
+**/Info.plist        filter=git-crypt diff=git-crypt
+
+# 🔐 Vaults and credentials
+vault/**             filter=git-crypt diff=git-crypt
+**/credentials       filter=git-crypt diff=git-crypt
+
+# 🔒 Default deny-by-convention directories (e.g. anything in "private/")
+private/**           filter=git-crypt diff=git-crypt
+
+# 🛠️ Optional: disable diff for binary secrets
+*.bin                filter=git-crypt diff=git-crypt
+
+# a
+dot                filter=git-crypt diff=git-crypt
+dot.el             filter=git-crypt diff=git-crypt
