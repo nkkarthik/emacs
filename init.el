@@ -218,6 +218,7 @@
 ;; (require 'org-tempo)
 
 (setq org-confirm-babel-evaluate nil)
+(setq org-babel-lisp-eval-fn #'sly-eval)
 
 ;; Original value was ((emacs-lisp . t))
 ;; (org-babel-do-load-languages 'org-babel-load-languages
