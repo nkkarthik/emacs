@@ -6,3 +6,23 @@
 
 #+RESULTS:
 : hello
+
+.PHONY: launch
+launch:
+
+
+#+begin_src sh
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/e.plist 2>/dev/null
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sh
+launchctl list | grep loca
+#+end_src
+
+#+RESULTS:
+|   741 |  0 | com.apple.localizationswitcherd    |
+| 85705 | 15 | local.emacs.daemon                 |
+|   674 |  0 | com.apple.findmy.findmylocateagent |
+|     - |  0 | com.apple.locationaccessstored     |

@@ -111,6 +111,11 @@ launch:
 	@sleep 2
 	@echo "✅ Emacs daemon started!"
 	@echo "💡 Test with: emacsclient -c"
+.PHONY: launchr
+launchr:
+	launchctl bootout gui/$$(id -u) ~/Library/LaunchAgents/e.plist 2>/dev/null || true
+	launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/e.plist
+
 
 .PHONY: system
 system:

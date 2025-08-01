@@ -1,12 +1,5 @@
 #+title: e
 
-#+begin_src elisp
-  (1+ 3)
-#+end_src
-
-#+RESULTS:
-: 4
-
 
 * build
 

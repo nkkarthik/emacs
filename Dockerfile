@@ -1,22 +1,25 @@
-# emacs build
+
+
+
+## emacs build
 FROM ubuntu:24.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
-
-# Enable source repositories (Ubuntu 24.04+ syntax)
-# to get build-dep emacs
-RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources \
-    && apt update && apt upgrade -y && apt install -y \
-    gosu sbcl unzip ttyd
-
-# Install official Xpra for remote display
-RUN wget -O /usr/share/keyrings/xpra.asc https://xpra.org/xpra-2023.asc && \
-    echo "Types: deb\nURIs: https://xpra.org\nSuites: noble\nComponents: main\nSigned-By: /usr/share/keyrings/xpra.asc\nArchitectures: amd64 arm64" > /etc/apt/sources.list.d/xpra.sources && \
-    apt update && \
-    apt install -y xpra xpra-html5
-
-
+#
+#ENV DEBIAN_FRONTEND=noninteractive
+#ENV TZ=UTC
+#
+## Enable source repositories (Ubuntu 24.04+ syntax)
+## to get build-dep emacs
+#RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources \
+#    && apt update && apt upgrade -y && apt install -y \
+#    gosu sbcl unzip ttyd
+#
+## Install official Xpra for remote display
+#RUN wget -O /usr/share/keyrings/xpra.asc https://xpra.org/xpra-2023.asc && \
+#    echo "Types: deb\nURIs: https://xpra.org\nSuites: noble\nComponents: main\nSigned-By: /usr/share/keyrings/xpra.asc\nArchitectures: amd64 arm64" > /etc/apt/sources.list.d/xpra.sources && \
+#    apt update && \
+#    apt install -y xpra xpra-html5
+#
+#
 # Install Emacs build dependencies
 #RUN apt build-dep -y emacs && \
 #    apt install -y \
