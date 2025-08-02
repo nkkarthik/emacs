@@ -349,6 +349,9 @@
 ;;   :bind ("<f5>" . my/toggle-modus-theme))
 
 
+(when (fboundp 'scroll-bar-mode)
+  (scroll-bar-mode -1))
+
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
