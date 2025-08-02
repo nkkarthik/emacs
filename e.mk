@@ -142,3 +142,30 @@ system:
 
 # Check status
 #systemctl --user status emacs.service
+
+
+TREE_SITTER_DIR := /tmp/tree-sitter
+kws:
+	sudo dnf update -y && \
+	sudo dnf install -y \
+		autoconf automake make gcc gcc-c++ \
+		texinfo ncurses-devel jansson-devel \
+		gnutls-devel pkgconf-pkg-config \
+		sqlite-devel libgccjit-devel \
+		libtool systemd-devel
+	@echo "✅ kws deps installed"
+	rm -rf $(TREE_SITTER_DIR)
+	git clone --depth=1 https://github.com/tree-sitter/tree-sitter.git $(TREE_SITTER_DIR)
+	cd $(TREE_SITTER_DIR) && make
+	cd $(TREE_SITTER_DIR) && sudo make install
+	PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" \
+	LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH" \
+	sudo ldconfig /usr/local/lib
+	@echo "✅ kws tree sitter installed"
+	./autogen.sh
+	PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" \
+	LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH" \
+	./configure --without-x --with-json --with-modules \
+	            --with-native-compilation --with-sqlite3
+	make -j$(nproc)
+	@echo "✅ kws emacs built"
