@@ -277,6 +277,9 @@
   (async-shell-command "make -C ~/m/vpn k" "*k*"))
 
 
+;; options
+(tool-bar-mode 0)
+(xterm-mouse-mode 1)
 
 ;; Enhanced leader key bindings
 (leader-def
