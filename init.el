@@ -209,72 +209,17 @@
   (show-paren-mode t)
   ; :bind (("M-[" . paredit-wrap-square)
   ;       ("M-{" . paredit-wrap-curly))
-  ; :diminish nil
+                                        ; :diminish nil
   )
 
+(add-to-list 'load-path (expand-file-name "~/m"))
+(add-to-list 'load-path (expand-file-name "~/k"))
 
-;;; org
+(load "k" :noerror)
 
-;; (require 'org-tempo)
+;;; use-package END
 
-(setq org-confirm-babel-evaluate nil)
-(setq org-babel-lisp-eval-fn #'sly-eval)
-
-;; Original value was ((emacs-lisp . t))
-;; (org-babel-do-load-languages 'org-babel-load-languages
-;;                             '((lisp . t)))
-
-;;; k funs
-
-(defun k/maybe-delete-frame ()
-  "Delete frame on Cmd+Q if running as daemon, otherwise kill terminal."
-  (interactive)
-  (if (and (daemonp) (not (eq (selected-frame) (car (frame-list)))))
-      (delete-frame)
-    (save-buffers-kill-terminal)))
-
-;; Remap Cmd+Q behavior (GUI only)
-(global-set-key (kbd "s-q") #'k/maybe-delete-frame)
-
-
-(defvar k-action-prev "" "holds previous k/action to repeat later")
-
-(defun k/action ()
-  "Run the current line in an asynchronous shell (`async-shell-command`)."
-  (interactive)
-  (let* ((line
-	  (if (use-region-p)
-	      (buffer-substring (region-beginning) (region-end))
-	    (thing-at-point 'line t)))
-         (cmd (string-trim line)))
-    (if (string-empty-p cmd)
-        (message "Current line is empty")
-      (setq k-action-prev cmd)
-      (async-shell-command cmd "*k*"))))
-
-
-(defun k/action-repeat ()
-  "Repeat previous k/action"
-  (interactive)
-  (unless (string-empty-p k-action-prev)
-    (async-shell-command k-action-prev "*k*")))
-
-
-(with-eval-after-load 'evil
-  (define-key evil-normal-state-map (kbd "C-j") #'k/action))
-(with-eval-after-load 'evil
-  (define-key evil-normal-state-map (kbd "C-k") #'k/action-repeat))
-
-
-(defun k/vpn ()
-  "connect this machine to vpn"
-  (interactive)
-  (async-shell-command "make -C ~/m/vpn" "*k*"))
-
-(defun k/vpnk ()
-  "connect k machine to vpn"
-  (interactive)
-  (async-shell-command "make -C ~/m/vpn k" "*k*"))
+(xterm-mouse-mode 1)
 
 
 ;; options
@@ -325,31 +270,6 @@
   "hf" '(describe-function :wk "describe function")
   "hv" '(describe-variable :wk "describe variable")
   "hk" '(describe-key :wk "describe key"))
-
-
-;; themes
-(use-package modus-themes
-  :config
-  (load-theme 'modus-operandi t)   ; light
-)
-
-;; (use-package modus-themes
-;;   :config
-;;   ;; Optional customizations before loading
-;;   (setq modus-themes-italic-constructs t
-;;         modus-themes-bold-constructs  t
-;;         modus-themes-headings        '((t . rainbow))
-;;         modus-themes-variable-pitch-headings nil)
-;;   ;; Load light or dark variant:
-;;   (load-theme 'modus-operandi t)   ; light
-;;   ;;(load-theme 'modus-vivendi   t) ; dark
-;;   ;; Define a toggle function
-;;   (defun my/toggle-modus-theme ()
-;;     (interactive)
-;;     (if (member 'modus-operandi custom-enabled-themes)
-;;         (load-theme 'modus-vivendi t)
-;;       (load-theme 'modus-operandi t)))
-;;   :bind ("<f5>" . my/toggle-modus-theme))
 
 
 (when (fboundp 'scroll-bar-mode)
