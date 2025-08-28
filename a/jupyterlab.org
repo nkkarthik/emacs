@@ -1,0 +1,79 @@
+
+#+TITLE: Jupyter lab
+#+PROPERTY: header-args :mkdirp yes :noweb yes :comments link
+#+PROPERTY: header-args:sh :results verbatim :exports both
+
+
+https://jupyterlab.readthedocs.io/en/latest/developer/contributing.html#installing-jupyterlab
+
+jlpm can be repla
+
+git clone https://github.com/<your-github-username>/jupyterlab.git
+cd jupyterlab
+
+
+sudo apt install python3-venv
+python3 -m venv venv
+source venv/bin/activate
+
+
+
+pip install -e ".[dev,test]"
+
+
+
+
+jlpm install
+jlpm run build  # Build the dev mode assets
+
+# Build the core mode assets
+jlpm run build:core
+
+# Build the app dir assets
+jupyter lab build
+
+how to bind to 0.0.0.0 for this ExecStart=%h/l/venv/bin/jupyter lab --dev-mode --ServerApp.allow_remote_access=true --ServerApp.token=moonsoon
+
+
+
+
+jupyter lab --notebook-dir='/home'
+--ServerApp.preferred_dir='/home/jovyan' --port=38888
+--ServerApp.allow_remote_access=true --ServerApp.token='
+=--ServerApp.ip=0.0.0.0=
+
+
+
+* Systemd user unit
+
+#+name: l.service
+#+begin_src conf :tangle ~/.config/systemd/user/l.service
+[Unit]
+Description=Jupyter Lab
+
+[Service]
+Type=simple
+WorkingDirectory=%h/e/a
+ExecStart=%h/l/venv/bin/jupyter lab --dev-mode --notebook-dir=%h --ServerApp.preferred_dir=%h/e/a --ServerApp.ip=0.0.0.0 --ServerApp.allow_remote_access=true --ServerApp.token=moonsoon
+Environment=PATH=%h/bin:%h/l/venv/bin:%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+
+#+end_src
+
+
+#+begin_src sh
+  systemctl --user daemon-reload
+  systemctl --user restart l
+#+end_src
+
+
+#+RESULTS:
+
+
+#+begin_src sh
+systemctl --user enable --now l.service
+#+end_src
