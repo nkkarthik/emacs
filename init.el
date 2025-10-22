@@ -25,43 +25,6 @@
   (straight-use-package-by-default t))
 
 
-(use-package sly
-  :config
-  (setq inferior-lisp-program "sbcl"))
-
-
-(use-package paredit
-  :init
-  (add-hook 'emacs-lisp-mode-hook #'enable-paredit-mode)
-  (add-hook 'eval-expression-minibuffer-setup-hook #'enable-paredit-mode)
-  (add-hook 'ielm-mode-hook #'enable-paredit-mode)
-  (add-hook 'lisp-mode-hook #'enable-paredit-mode)
-  (add-hook 'lisp-interaction-mode-hook #'enable-paredit-mode)
-  (add-hook 'scheme-mode-hook #'enable-paredit-mode)
-  :config
-  (show-paren-mode t)
-  ; :bind (("M-[" . paredit-wrap-square)
-  ;       ("M-{" . paredit-wrap-curly))
-                                        ; :diminish nil
-  )
-
-
-;; Magit - Git interface
-(use-package magit
-  :commands magit-status)
-
-
-;; Eglot - Built-in LSP client (Emacs 29+)
-(use-package eglot
-  :hook ((python-mode . eglot-ensure)
-         (javascript-mode . eglot-ensure)
-         (typescript-mode . eglot-ensure)
-         (go-mode . eglot-ensure)))
-
-
-;;; use-package END
-
-
 ;; koptions
 ;; (add-to-list 'load-path (expand-file-name "a" user-emacs-directory))
 (add-to-list 'load-path (expand-file-name "~/k"))

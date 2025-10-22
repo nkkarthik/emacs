@@ -113,8 +113,8 @@
 ;; Consult - Enhanced search and navigation commands
 (use-package consult
   :straight t
-  :bind (("C-x b" . consult-buffer)
-         ("C-c h" . consult-history))
+  :bind (("C-x b" . consult-buffer) ;; originally bound to switch-to-buffer
+         ("C-c h" . consult-history)) ;; unbound
   :config
   (leader-def
     "bb" 'consult-buffer
