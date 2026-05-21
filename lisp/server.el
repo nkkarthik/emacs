@@ -1,6 +1,6 @@
 ;;; server.el --- Lisp code for GNU Emacs running as server process -*- lexical-binding: t -*-
 
-;; Copyright (C) 1986-1987, 1992, 1994-2025 Free Software Foundation,
+;; Copyright (C) 1986-1987, 1992, 1994-2026 Free Software Foundation,
 ;; Inc.
 
 ;; Author: William Sommerfeld <wesommer@athena.mit.edu>
@@ -706,6 +706,7 @@ the `server-process' variable."
 	    ;; when we can't get user input, which may happen when
 	    ;; doing emacsclient --eval "(kill-emacs)" in daemon mode.
 	    (cond
+             ;; Use `frame-initial-p'?
 	     ((and (daemonp)
 		   (null (cdr (frame-list)))
 		   (eq (selected-frame) terminal-frame))
@@ -899,25 +900,12 @@ Server mode runs a process that accepts commands from the
 
 (defconst server-msg-size 1024
   "Maximum size of a message sent to a client.")
+(make-obsolete-variable 'server-msg-size nil "31.1")
 
 (defun server-reply-print (qtext proc)
   "Send a `-print QTEXT' command to client PROC.
-QTEXT must be already quoted.
-This handles splitting the command if it would be bigger than
-`server-msg-size'."
-  (let ((prefix "-print ")
-	part)
-    (while (> (+ (length qtext) (length prefix) 1) server-msg-size)
-      ;; We have to split the string
-      (setq part (substring qtext 0 (- server-msg-size (length prefix) 1)))
-      ;; Don't split in the middle of a quote sequence
-      (if (string-match "\\(^\\|[^&]\\)&\\(&&\\)*$" part)
-	  ;; There is an uneven number of & at the end
-	  (setq part (substring part 0 -1)))
-      (setq qtext (substring qtext (length part)))
-      (server-send-string proc (concat prefix part "\n"))
-      (setq prefix "-print-nonl "))
-    (server-send-string proc (concat prefix qtext "\n"))))
+QTEXT must be already quoted."
+  (server-send-string proc (concat "-print " qtext "\n")))
 
 (defun server-create-tty-frame (tty type proc &optional parameters)
   (unless tty
@@ -1155,7 +1143,9 @@ The following commands are accepted by the client:
 `-print-nonl STRING'
   Print STRING on stdout.  Used to continue a
   preceding -print command that would be too big to send
-  in a single message.
+  in a single message.  Unused in the server since Emacs 31;
+  mentioned here only for completeness, because the client
+  needs to support it when it connects to older Emacsen.
 
 `-error DESCRIPTION'
   Signal an error and delete process PROC.
@@ -1202,9 +1192,12 @@ The following commands are accepted by the client:
 
 (cl-defun server--process-filter-1 (proc string)
   (server-log (concat "Received " string) proc)
-  ;; First things first: let's check the authentication
+  ;; First things first: let's check the authentication.
+  ;; It is important that we strip the trailing space or newline
+  ;; character in order that it does not appear, to the code below,
+  ;; that there is a zero-length argument there (bug#79889).
   (unless (process-get proc :authenticated)
-    (if (and (string-match "-auth \\([!-~]+\\)\n?" string)
+    (if (and (string-match "-auth \\([!-~]+\\)[ \n]?" string)
 	     (equal (match-string 1 string) (process-get proc :auth-key)))
 	(progn
 	  (setq string (substring string (match-end 0)))
@@ -1216,7 +1209,7 @@ The following commands are accepted by the client:
       ;; visible for some reason.
       (server--message-sit-for 2 "Authentication failed")
       (server-send-string
-       proc (concat "-error " (server-quote-arg "Authentication failed")))
+       proc (concat "-error " (server-quote-arg "Authentication failed") "\n"))
       (unless (eq system-type 'windows-nt)
         (let ((terminal (process-get proc 'terminal)))
           ;; Only delete the terminal if it is non-nil.
@@ -1232,7 +1225,7 @@ The following commands are accepted by the client:
     (when prev
       (setq string (concat prev string))
       (process-put proc 'previous-string nil)))
-  (condition-case err
+  (condition-case-unless-debug err
       (progn
 	(server-add-client proc)
 	;; Send our pid
@@ -1267,8 +1260,10 @@ The following commands are accepted by the client:
 		args-left)
 	    ;; Remove this line from STRING.
 	    (setq string (substring string (match-end 0)))
-	    (setq args-left
-		  (mapcar #'server-unquote-arg (split-string request " " t)))
+	    (cl-assert (equal (substring request -1) " ")
+		       nil "emacsclient request did not end in SPC: %S" request)
+	    (setq args-left (mapcar #'server-unquote-arg
+				    (nbutlast (split-string request " "))))
 	    (while args-left
               (pcase (pop args-left)
                 ;; -version CLIENT-VERSION: obsolete at birth.
@@ -1424,6 +1419,7 @@ The following commands are accepted by the client:
 			 (or (eq use-current-frame 'always)
 			     ;; We can't use the Emacs daemon's
 			     ;; terminal frame.
+                             ;; Use `frame-initial-p'?
 			     (not (and (daemonp)
 				       (null (cdr (frame-list)))
 				       (eq (selected-frame)
@@ -1448,6 +1444,7 @@ The following commands are accepted by the client:
                    ;; If there won't be a current frame to use, fall
                    ;; back to trying to create a new one.
 		   ((and use-current-frame
+                         ;; Use `frame-initial-p'?
 			 (daemonp)
 			 (null (cdr (frame-list)))
 			 (eq (selected-frame) terminal-frame)
@@ -1480,6 +1477,9 @@ The following commands are accepted by the client:
 Adding or removing strings from this variable while the Emacs
 server is processing a series of eval requests will affect what
 Emacs evaluates.
+
+This list includes empty strings if empty string arguments were passed
+when invoking emacsclient.
 
 See also `argv' for a similar variable which works for
 invocations of \"emacs\".")
@@ -1565,7 +1565,8 @@ invocations of \"emacs\".")
     (server--message-sit-for 2 (error-message-string err))
     (server-send-string
      proc (concat "-error " (server-quote-arg
-                             (error-message-string err))))
+			     (error-message-string err))
+		  "\n"))
     (server-log (error-message-string err) proc)
     (unless (eq system-type 'windows-nt)
       (let ((terminal (process-get proc 'terminal)))
@@ -1589,6 +1590,7 @@ LINE-COL should be a pair (LINE . COL)."
 
 (defun server-visit-files (files proc &optional nowait)
   "Find FILES and return a list of buffers created.
+If some file was deleted since last visited, offer to save its buffer.
 FILES is an alist whose elements are (FILENAME . FILEPOS)
 where FILEPOS can be nil or a pair (LINENUMBER . COLUMNNUMBER).
 PROC is the client that requested this operation.
@@ -1620,7 +1622,9 @@ so don't mark these buffers specially, just visit them normally."
             (cond ((file-exists-p filen)
                    (when (not (verify-visited-file-modtime obuf))
                      (revert-buffer t nil)))
-                  (t
+                  ;; Only ask the question if the file did exist at some
+                  ;; point, but was deleted since.
+                  ((listp (visited-file-modtime))
                    (when (y-or-n-p
                           (concat "File no longer exists: " filen
                                   ", write buffer to file? "))
@@ -1799,7 +1803,7 @@ To abort an edit instead of saying \"Done\", use \\[server-edit-abort]."
       (mapc (lambda (proc)
               (server-send-string
                proc (concat "-error "
-                            (server-quote-arg "Aborted by the user"))))
+                            (server-quote-arg "Aborted by the user") "\n")))
             server-clients)
     (message "This buffer has no clients")))
 
@@ -2083,7 +2087,7 @@ something that cannot be printed readably."
       (process-send-string process
 			   (concat "-eval "
 				   (server-quote-arg (format "%S" form))
-				   "\n"))
+				   " \n"))
       (while (memq (process-status process) '(open run))
 	(accept-process-output process 0.01))
       (goto-char (point-min))

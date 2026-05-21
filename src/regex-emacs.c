@@ -1,6 +1,6 @@
 /* Emacs regular expression matching and search
 
-   Copyright (C) 1993-2025 Free Software Foundation, Inc.
+   Copyright (C) 1993-2026 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -3044,8 +3044,7 @@ static bool
 forall_firstchar (struct re_pattern_buffer *bufp, re_char *p, re_char *pend,
                   bool f (re_char *p, void *arg), void *arg)
 {
-  eassert (!bufp || bufp->used);
-  eassert (pend || bufp->used);
+  eassert (bufp ? !!bufp->used : !!pend);
   return forall_firstchar_1 (p, pend,
                              bufp ? bufp->buffer - 1 : p,
                              bufp ? bufp->buffer + bufp->used + 1 : pend,
@@ -3751,7 +3750,7 @@ skip_one_char (re_char *p)
    C is character to test (possibly after translations) and CORIG is original
    character (i.e. without any translations).  UNIBYTE denotes whether c is
    unibyte or multibyte character.
-   CANON_TABLE is the canonicalisation table for case folding or Qnil.  */
+   CANON_TABLE is the canonicalization table for case folding or Qnil.  */
 static bool
 execute_charset (re_char **pp, int c, int corig, bool unibyte,
                  Lisp_Object canon_table)

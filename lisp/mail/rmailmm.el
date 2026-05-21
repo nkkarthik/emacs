@@ -1,6 +1,6 @@
 ;;; rmailmm.el --- MIME decoding and display stuff for RMAIL  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2006-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2026 Free Software Foundation, Inc.
 
 ;; Author: Alexander Pohoyda
 ;;	Alex Schroeder
@@ -763,6 +763,7 @@ HEADER is a header component of a MIME-entity object (see
 	;; Image retrieval happens asynchronously, but meanwhile
 	;; `rmail-swap-buffers' may have been run, leaving
 	;; `shr-image-fetched' trying to insert the image in the wrong buffer.
+	;; FIXME: With `shr--async-put-image' this should now work correctly.
 	(shr-inhibit-images t)
 	;; Bind shr-width to nil to force shr-insert-document break
 	;; the lines at the window margin.  The default is
@@ -842,9 +843,8 @@ directly."
      ((string-match "text/" content-type)
       (setq type 'text))
      ((string-match "image/\\(.*\\)" content-type)
-      (setq type (and (fboundp 'image-supported-file-p)
-                      (image-supported-file-p
-		       (concat "." (match-string 1 content-type)))))
+      (setq type (image-supported-file-p
+		  (concat "." (match-string 1 content-type))))
       (when (and type
                  rmail-mime-show-images
 	         (not (eq rmail-mime-show-images 'button))

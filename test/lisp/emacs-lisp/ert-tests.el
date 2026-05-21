@@ -1,6 +1,6 @@
 ;;; ert-tests.el --- ERT's self-tests  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2007-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2026 Free Software Foundation, Inc.
 
 ;; Author: Christian Ohler <ohler@gnu.org>
 
@@ -1051,6 +1051,25 @@ F failing-test
   "Test that Skip does not fail on last test case (Bug#76839)."
   (ert-test-erts-file (ert-resource-file "erts-skip-last.erts")
                       (lambda () ())))
+
+(ert-deftest ert-test-list-of-erts-file-tests ()
+  "Test that the list of tests from erts files is created correctly."
+  (let ((run-erts-file-tests
+         (lambda (erts-file)
+           (let* ((ert-test (make-ert-test
+                             :body (lambda ()
+                                     (ert-test-erts-file
+                                      (ert-resource-file erts-file)
+                                      (lambda () ())))))
+                  (result (ert-run-test ert-test))
+                  (erts-file-tests (ert-test-result-erts-file-tests result)))
+             (mapcar (lambda (desc)
+                       (cdr (assq 'name desc)))
+                     erts-file-tests)))))
+    (should (equal (funcall run-erts-file-tests "erts-file-test-list.erts")
+                   '("foo" "bar" "quux")))
+    (should (equal (funcall run-erts-file-tests "erts-file-test-list-fail.erts")
+                   '("foo" "bar")))))
 
 (provide 'ert-tests)
 

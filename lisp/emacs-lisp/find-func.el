@@ -1,6 +1,6 @@
 ;;; find-func.el --- find the definition of the Emacs Lisp function near point  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1997, 1999, 2001-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1999, 2001-2026 Free Software Foundation, Inc.
 
 ;; Author: Jens Petersen <petersen@kurims.kyoto-u.ac.jp>
 ;; Keywords: emacs-lisp, functions, variables
@@ -302,18 +302,19 @@ TYPE should be nil to find a function, or `defvar' to find a variable."
 		      (indirect-function
 		       (find-function-advised-original fun-or-var)))))
   (with-current-buffer (find-file-noselect file)
-    (goto-char (point-min))
-    (unless (re-search-forward
-	     (if type
-		 (concat "DEFVAR[A-Z_]*[ \t\n]*([ \t\n]*\""
-			 (regexp-quote (symbol-name fun-or-var))
-			 "\"")
-	       (concat "DEFUN[ \t\n]*([ \t\n]*\""
-		       (regexp-quote (subr-name (advice--cd*r fun-or-var)))
-		       "\""))
-	     nil t)
-      (error "Can't find source for %s" fun-or-var))
-    (cons (current-buffer) (match-beginning 0))))
+    (without-restriction
+      (goto-char (point-min))
+      (unless (re-search-forward
+	       (if type
+		   (concat "DEFVAR[A-Z_]*[ \t\n]*([ \t\n]*\""
+			   (regexp-quote (symbol-name fun-or-var))
+			   "\"")
+	         (concat "DEFUN[ \t\n]*([ \t\n]*\""
+		         (regexp-quote (subr-name (advice--cd*r fun-or-var)))
+		         "\""))
+	       nil t)
+        (error "Can't find source for %s" fun-or-var))
+      (cons (current-buffer) (match-beginning 0)))))
 
 ;;;###autoload
 (defun find-library (library)

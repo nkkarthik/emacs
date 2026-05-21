@@ -1,6 +1,6 @@
 ;;; gnus-srvr.el --- virtual server support for Gnus  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1995-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1995-2026 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -24,8 +24,6 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl-lib))
-
 (require 'gnus)
 (require 'gnus-start)
 (require 'gnus-spec)
@@ -33,6 +31,7 @@
 (require 'gnus-int)
 (require 'gnus-range)
 (require 'gnus-cloud)
+(require 'gnus-sum)
 
 (autoload 'gnus-group-read-ephemeral-search-group "nnselect")
 
@@ -252,6 +251,8 @@ The following commands are available:
 \\{gnus-server-mode-map}"
   (when (gnus-visual-p 'server-menu 'menu)
     (gnus-server-make-menu-bar))
+  (gnus-update-format-specifications nil 'server 'server-mode)
+  (gnus-set-mode-line 'server)
   (gnus-simplify-mode-line)
   (gnus-set-default-directory)
   (setq mode-line-process nil)

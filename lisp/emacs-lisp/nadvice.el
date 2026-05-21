@@ -1,6 +1,6 @@
 ;;; nadvice.el --- Light-weight advice primitives for Elisp functions  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2012-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2026 Free Software Foundation, Inc.
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: extensions, lisp, tools
@@ -74,7 +74,8 @@
    (:before-until (or (apply car r) (apply cdr r)))
    (:before-while (and (apply car r) (apply cdr r)))
    (:filter-args (apply cdr (funcall car r)))
-   (:filter-return (funcall car (apply cdr r))))
+   (:filter-return (funcall car (apply cdr r)))
+   (:interactive-only (apply cdr r)))
   "List of descriptions of how to add a function.
 Each element has the form (HOW OCL DOC) where HOW is a keyword,
 OCL is a \"prototype\" function of type `advice', and

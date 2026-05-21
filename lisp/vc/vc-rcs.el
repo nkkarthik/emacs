@@ -1,6 +1,6 @@
 ;;; vc-rcs.el --- support for RCS version-control  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1992-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1992-2026 Free Software Foundation, Inc.
 
 ;; Author: FSF (see vc.el for full credits)
 ;; Maintainer: emacs-devel@gnu.org
@@ -249,6 +249,9 @@ COMMENT can be used to provide an initial description for each FILES.
 Passes either `vc-rcs-register-switches' or `vc-register-switches'
 to the RCS command."
   (let (subdir name)
+    ;; RCS doesn't track directories, and 'ci' will fail if passed a
+    ;; directory name.
+    (setq files (seq-remove #'file-directory-p files))
     (dolist (file files)
       (and (not (file-exists-p
 		 (setq subdir (expand-file-name "RCS"
@@ -945,8 +948,11 @@ Uses `rcs2log' which only works for RCS and CVS."
 (autoload 'vc-rename-master "vc-filewise")
 
 (defun vc-rcs-rename-file (old new)
-  ;; Just move the master file (using vc-rcs-master-templates).
-  (vc-rename-master (vc-master-name old) new vc-rcs-master-templates))
+  (if (file-directory-p old)
+      ;; RCS doesn't track directories, so just rename the directory.
+      (rename-file old new)
+    ;; Just move the master file (using vc-rcs-master-templates).
+    (vc-rename-master (vc-master-name old) new vc-rcs-master-templates)))
 
 (defun vc-rcs-find-file-hook ()
   ;; If the file is locked by some other user, make

@@ -1,6 +1,6 @@
 ;;; tex-mode.el --- TeX, LaTeX, and SliTeX mode commands  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1985-1986, 1989, 1992, 1994-1999, 2001-2025 Free
+;; Copyright (C) 1985-1986, 1989, 1992, 1994-1999, 2001-2026 Free
 ;; Software Foundation, Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
@@ -1874,7 +1874,7 @@ Mark is left at original location."
 		  (progn (latex-backward-sexp-1) (1+ arg)))))
       (scan-error
        (goto-char pos)
-       (signal (car err) (cdr err))))))
+       (signal err)))))
 
 (defun latex-syntax-after ()
   "Like (char-syntax (char-after)) but aware of multi-char elements."

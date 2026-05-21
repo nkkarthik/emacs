@@ -1,6 +1,6 @@
 ;;; cal-french.el --- calendar functions for the French Revolutionary calendar  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1988-1989, 1992, 1994-1995, 1997, 2001-2025 Free
+;; Copyright (C) 1988-1989, 1992, 1994-1995, 1997, 2001-2026 Free
 ;; Software Foundation, Inc.
 
 ;; Author: Edward M. Reingold <reingold@cs.uiuc.edu>
@@ -344,7 +344,7 @@ Echo French Revolutionary date unless NOECHO is non-nil."
                      (calendar-absolute-from-gregorian
                       (calendar-current-date)))))))
           (month-list
-           (mapcar 'list
+           (mapcar #'list
                    (append months
                            (if (calendar-french-leap-year-p year)
                                (mapcar #'calendar-french-trim-feast feasts)

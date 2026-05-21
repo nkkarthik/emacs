@@ -1,6 +1,6 @@
 /* emacs-module.c - Module loading and runtime implementation
 
-Copyright (C) 2015-2025 Free Software Foundation, Inc.
+Copyright (C) 2015-2026 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -19,7 +19,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /*
 The public module API is defined in the header emacs-module.h.  The
-configure script generates emacs-module.h from emacs-module.h.in and
+configure script generates emacs-module.h from emacs-module.in.h and
 the version-specific environment fragments in module-env-*.h.
 
 If you want to change the module API, please abide to the following
@@ -263,13 +263,11 @@ module_memory_buffer_too_small (ptrdiff_t actual, ptrdiff_t required)
    code after the macro may longjmp back into the macro, which means
    its local variable INTERNAL_CLEANUP must stay live in later code.  */
 
-/* TODO: Make backtraces work if this macro is used.  */
-
 #define MODULE_HANDLE_NONLOCAL_EXIT(retval)                             \
   if (module_non_local_exit_check (env) != emacs_funcall_exit_return)	\
     return retval;							\
   struct handler *internal_handler =                                    \
-    push_handler_nosignal (Qt, CATCHER_ALL);                            \
+    push_handler_nosignal (Qt, CATCHER_ALL_DEBUGGABLE);                 \
   if (!internal_handler)                                                \
     {									\
       module_out_of_memory (env);					\
@@ -1048,7 +1046,7 @@ import/export overhead on most platforms.
 
 /* Documented maximum count of magnitude elements. */
 #define module_bignum_count_max \
-  ((ptrdiff_t) min (SIZE_MAX, PTRDIFF_MAX) / sizeof (emacs_limb_t))
+  ((ptrdiff_t) (min (SIZE_MAX, PTRDIFF_MAX) / sizeof (emacs_limb_t)))
 
 /* Verify that emacs_limb_t indeed has unique object
    representations.  */
@@ -1102,7 +1100,7 @@ module_extract_big_integer (emacs_env *env, emacs_value arg, int *sign,
          suffice.  */
       EMACS_UINT u;
       enum { required = (sizeof u + size - 1) / size };
-      static_assert (0 < required && +required <= module_bignum_count_max);
+      static_assert (0 < required && required <= module_bignum_count_max);
       if (magnitude == NULL)
         {
           *count = required;
@@ -1134,9 +1132,8 @@ module_extract_big_integer (emacs_env *env, emacs_value arg, int *sign,
       return true;
     }
   size_t required_size = (mpz_sizeinbase (*x, 2) + numb - 1) / numb;
-  eassert (required_size <= PTRDIFF_MAX);
-  ptrdiff_t required = (ptrdiff_t) required_size;
-  eassert (required <= module_bignum_count_max);
+  eassert (required_size <= module_bignum_count_max);
+  ptrdiff_t required = required_size;
   if (magnitude == NULL)
     {
       *count = required;

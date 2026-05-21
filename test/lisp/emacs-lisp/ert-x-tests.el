@@ -1,6 +1,6 @@
 ;;; ert-x-tests.el --- Tests for ert-x.el  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2008, 2010-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2008, 2010-2026 Free Software Foundation, Inc.
 
 ;; Author: Phil Hagelberg
 ;; 	   Christian Ohler <ohler@gnu.org>
@@ -292,6 +292,77 @@ desired effect."
 (ert-deftest ert-x-tests-with-temp-directory/text-signals-error ()
   (should-error
    (ert-with-temp-directory dir :text "foo" nil)))
+
+(ert-deftest ert-x-tests-play-keys ()
+  "Test `ert-play-keys'.
+Send one symbolic event, some inserted text, and some key event to the
+test buffer, and check all of them are processed."
+  (ert-with-test-buffer (:selected t)
+    (let (verdict-event verdict-key verdict-pre-command-hook verdict-post-command-hook)
+      (let ((pre-command-hook (lambda () (setq verdict-pre-command-hook t)))
+            (post-command-hook (lambda () (setq verdict-post-command-hook t)))
+            (map (let ((map (make-sparse-keymap)))
+                    (define-key map [event]
+                                (lambda ()
+                                  (interactive)
+                                  (setq verdict-event
+                                        (list t
+                                              (called-interactively-p 'any)
+                                              (called-interactively-p 'interactive)))))
+                    (define-key map [?$]
+                                (lambda ()
+                                  (interactive)
+                                  (setq verdict-key
+                                        (list t
+                                              (called-interactively-p 'any)
+                                              (called-interactively-p 'interactive)))))
+                    map)))
+        (let ((minor-mode-map-alist (cons (cons t map) minor-mode-map-alist)))
+	  (ert-play-keys (vconcat [event] "n'importe $quoi"))))
+      (should (equal verdict-event '(t  t nil)))
+      (should (equal verdict-key '(t  t nil)))
+      (should (eq verdict-pre-command-hook t))
+      (should (eq verdict-post-command-hook t)))
+    (should (string= "n'importe quoi"
+		     (buffer-substring (point-min) (point-max))))))
+
+(ert-deftest ert-x-tests-simulate-command ()
+  "Test `ert-simulate-command'."
+  (ert-with-test-buffer ()
+    (let (verdict-interactive verdict-pre-command-hook verdict-post-command-hook)
+      (let ((pre-command-hook (lambda () (setq verdict-pre-command-hook t)))
+            (post-command-hook (lambda () (setq verdict-post-command-hook t))))
+        (should (eq (ert-simulate-command
+                     (list
+                      (lambda (x)
+                        (interactive (list "un rien"))
+                        (insert x)
+                        (setq verdict-interactive (list t
+                                                        (called-interactively-p 'any)
+                                                        (called-interactively-p 'interactive)))
+                        :ok)
+                      "n'importe quoi"))
+                    :ok)))
+      (should (equal verdict-interactive '(t nil nil)))
+      (should (eq verdict-pre-command-hook t))
+      (should (eq verdict-post-command-hook t)))
+    (should (string= "n'importe quoi"
+		     (buffer-substring (point-min) (point-max))))))
+
+(ert-deftest ert-x-tests-simulate-keys ()
+  "Test `ert-simulate-keys'."
+  (ert-with-test-buffer ()
+    (let* ((map (let ((map (make-sparse-keymap)))
+                  (define-key map [?b]
+                              (lambda ()
+                                (interactive)
+                                (insert "r"))) map))
+           (minor-mode-map-alist (cons (cons t map) minor-mode-map-alist)))
+      (ert-simulate-keys
+       (listify-key-sequence "un bien\nn'importe quoi")
+       (should (string= (read-from-minibuffer "Please enter something: ") "un rien")))
+      (should (string= "" (buffer-substring (point-min) (point-max)))))))
+
 
 (provide 'ert-x-tests)
 

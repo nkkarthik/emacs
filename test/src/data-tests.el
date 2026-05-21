@@ -1,6 +1,6 @@
 ;;; data-tests.el --- tests for src/data.c  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2013-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2026 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -797,6 +797,8 @@ comparing the subr with a much slower Lisp implementation."
   (should (= (ash (* 2 most-negative-fixnum) (* 2 most-negative-fixnum)) -1))
   (should (= (ash (* 2 most-negative-fixnum) -1)
 	     most-negative-fixnum))
+  (should (= (ash 1 48) #x1000000000000))
+  (should (= (ash 1 72) #x1000000000000000000))
   (with-suppressed-warnings ((suspicious lsh))
     (should (= (lsh most-negative-fixnum 1)
                (* most-negative-fixnum 2)))
@@ -928,5 +930,59 @@ comparing the subr with a much slower Lisp implementation."
             (cond
              ((eq subtype 'function) (cl-functionp val))
              (t (should-not (cl-typep val subtype))))))))))
+
+(ert-deftest data-aset-string ()
+  ;; unibyte
+  (let ((s (copy-sequence "abcdef")))
+    (cl-assert (not (multibyte-string-p s)))
+    (aset s 4 ?E)
+    (should (equal s "abcdEf"))
+    (aset s 2 255)
+    (should (equal s "ab\377dEf"))
+    (should-error (aset s 3 256))       ; not a byte value
+    (should-error (aset s 3 #x3fff80))) ; not a byte value
+  ;; multibyte
+  (let ((s (copy-sequence "abçdef")))
+    (cl-assert (multibyte-string-p s))
+    (aset s 4 ?E)
+    (should (equal s "abçdEf"))
+    (should-error (aset s 2 ?c))        ; previous char not ASCII
+    (should-error (aset s 2 #xe9))      ; new char not ASCII
+    (should-error (aset s 3 #x3fff80))) ; new char not ASCII
+  )
+
+(ert-deftest data-tests-per-buffer-var-predicates ()
+  (with-temp-buffer
+    ;; per buffer variable without predicate
+    (progn
+      (setq line-spacing 2.3)
+      (should (= line-spacing 2.3))
+      (setq line-spacing "2.3")
+      (should (equal line-spacing "2.3"))
+      (setq line-spacing nil)
+      (should (equal line-spacing nil)))
+    ;; per buffer variable with 'fraction predicate
+    (progn
+      (dolist (v '(nil 0.7))
+        (setq scroll-up-aggressively v)
+        (should (equal scroll-up-aggressively v)))
+      (should-error (setq scroll-up-aggressively 'abc)
+                    :type 'wrong-type-argument)
+      (should-error (setq scroll-up-aggressively 2.7))
+      (should (equal scroll-up-aggressively 0.7)))
+    ;; per buffer variable with 'vertical-scroll-bar predicate
+    (progn
+      (dolist (v (get 'vertical-scroll-bar 'choice))
+        (setq vertical-scroll-bar v)
+        (should (equal vertical-scroll-bar v)))
+      (should-error (setq vertical-scroll-bar 'foo))
+      (should (equal vertical-scroll-bar 'right)))
+    ;; per buffer variable with 'overwrite-mode predicate
+    (progn
+      (dolist (v (get 'overwrite-mode 'choice))
+        (setq overwrite-mode v)
+        (should (equal overwrite-mode v)))
+      (should-error (setq overwrite-mode 'foo))
+      (should (equal overwrite-mode 'overwrite-mode-binary)))))
 
 ;;; data-tests.el ends here

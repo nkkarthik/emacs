@@ -1,6 +1,6 @@
 ;;; compile-tests.el --- Test suite for compile.el.  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2026 Free Software Foundation, Inc.
 
 ;; Author: Chong Yidong <cyd@stupidchicken.com>
 ;; Keywords:       internal
@@ -121,7 +121,8 @@
     ;; cucumber
     (cucumber "Scenario: undefined step  # features/cucumber.feature:3"
      29 nil 3 "features/cucumber.feature" error)
-    (cucumber "      /home/gusev/.rvm/foo/bar.rb:500:in `_wrap_assertion'"
+    ;; Below is from cucumber but gnu regexp is consistent and matches first.
+    (gnu "      /home/gusev/.rvm/foo/bar.rb:500:in `_wrap_assertion'"
      1 nil 500 "/home/gusev/.rvm/foo/bar.rb" error)
     ;; edg-1 edg-2
     (edg-1 "build/intel/debug/../../../struct.cpp(42): error: identifier \"foo\" is undefined"
@@ -271,6 +272,8 @@
      1 nil 27041 "{standard input}" warning)
     (gnu "boost/container/detail/flat_tree.hpp:589:25:   [ skipping 5 instantiation contexts, use -ftemplate-backtrace-limit=0 to disable ]"
      1 25 589 "boost/container/detail/flat_tree.hpp" info)
+    ;; Below from pip install, running g++ to compile python extension module.
+    (gnu "  src/add.cpp:8:31: error: invalid operands of types ‘const double’ and ‘const double*’ to binary ‘operator+’" 1 31 8 "src/add.cpp" error)
     ;; Gradle/Kotlin
     (gradle-kotlin
      "e: file:///src/Test.kt:267:5 foo: bar" 4 5 267 "/src/Test.kt" error)
@@ -384,6 +387,10 @@
     (rust
      "note: required by a bound in `Trait`\n  --> src/auxiliary/trait-debuginfo.rs:23:18"
      1 18 23 "src/auxiliary/trait-debuginfo.rs" info)
+    (rust-panic "thread 'main' (1234) panicked at library/std/src/io/stdio.rs:30:40:"
+                1 40 30 "library/std/src/io/stdio.rs" error)
+    (rust-panic "    thread 'main' (1234) panicked at library/std/src/io/stdio.rs:50:60:"
+                1 60 50 "library/std/src/io/stdio.rs" error)
     ;; ruby (uses gnu)
     (gnu "plain-exception.rb:7:in `fun': unhandled exception"
      1 nil 7 "plain-exception.rb" error)
@@ -552,7 +559,7 @@ The test data is in `compile-tests--test-regexps-data'."
                    1 15 5 "alpha.c")))
         (compile--test-error-line test))
 
-      (should (eq compilation-num-errors-found 108))
+      (should (eq compilation-num-errors-found 111))
       (should (eq compilation-num-warnings-found 37))
       (should (eq compilation-num-infos-found 36)))))
 

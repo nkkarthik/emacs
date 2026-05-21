@@ -1,6 +1,6 @@
 ;;; url.el --- Uniform Resource Locator retrieval tool  -*- lexical-binding: t -*-
 
-;; Copyright (C) 1996-1999, 2001, 2004-2025 Free Software Foundation,
+;; Copyright (C) 1996-1999, 2001, 2004-2026 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Bill Perry <wmperry@gnu.org>
@@ -141,6 +141,11 @@ occurred.  Each pair is one of:
 \(:error (error type . DATA)) - an error occurred.  TYPE is a
 symbol that says something about where the error occurred, and
 DATA is a list (possibly nil) that describes the error further.
+
+\(:peer GNUTLS-INFO) - GnuTLS information for the retrieval request.
+This will be present only if GnuTLS was used to make an HTTPS request,
+in which case GNUTLS-INFO is the list returned by `gnutls-peer-status'
+describing the state of TLS connection with the peer.
 
 Return the buffer URL will load into, or nil if the process has
 already completed (i.e. URL was a mailto URL or similar; in this case

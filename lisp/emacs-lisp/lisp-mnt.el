@@ -1,6 +1,6 @@
 ;;; lisp-mnt.el --- utility functions for Emacs Lisp maintainers  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1992-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1992-2026 Free Software Foundation, Inc.
 
 ;; Author: Eric S. Raymond <esr@thyrsus.com>
 ;; Maintainer: emacs-devel@gnu.org
@@ -462,11 +462,10 @@ is wrapped around any parts requiring it."
 The return value is a list of elements of the form (PACKAGE VERSION)
 where PACKAGE is the package name (a symbol) and VERSION is the
 package version (a string)."
-  (require 'package)
   (lm-with-file file
-    (and-let* ((require-lines (lm-header-multiline "package-requires")))
+    (when-let* ((require-lines (lm-header-multiline "package-requires")))
       (lm--prepare-package-dependencies
-       (package-read-from-string (mapconcat #'identity require-lines " "))))))
+       (car (read-from-string (mapconcat #'identity require-lines " ")))))))
 
 (defun lm-package-version (&optional file)
   "Return \"Package-Version\" or \"Version\" header.

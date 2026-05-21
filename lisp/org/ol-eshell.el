@@ -1,6 +1,6 @@
 ;;; ol-eshell.el --- Links to Working Directories in Eshell  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2026 Free Software Foundation, Inc.
 
 ;; Author: Konrad Hinsen <konrad.hinsen AT fastmail.net>
 
@@ -30,7 +30,7 @@
 (require 'esh-mode)
 (require 'ol)
 
-(declare-function eshell/pwd "em-dirs.el" (&rest args))
+(declare-function eshell/pwd "em-dirs" ())
 
 (org-link-set-parameters "eshell"
 			 :follow #'org-eshell-open

@@ -1,6 +1,6 @@
 ;;; register.el --- register commands for Emacs      -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1985, 1993-1994, 2001-2025 Free Software Foundation,
+;; Copyright (C) 1985, 1993-1994, 2001-2026 Free Software Foundation,
 ;; Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
@@ -73,7 +73,7 @@ A list of the form (file . FILE-NAME) represents the file named FILE-NAME.
 A list of the form (file-query FILE-NAME POSITION) represents
  position POSITION in the file named FILE-NAME, but query before
  visiting it.
-A list of the form (buffer . BUFFER-NAME) represents the buffer BUFFER-NAME.
+A list of the form (buffer . BUFFER) represents the named BUFFER.
 A list of the form (WINDOW-CONFIGURATION POSITION)
  represents a saved window configuration plus a saved value of point.
 A list of the form (FRAME-CONFIGURATION POSITION)
@@ -246,7 +246,7 @@ Format of each entry is controlled by the variable `register-preview-function'."
         nil
         (with-current-buffer standard-output
           (setq cursor-in-non-selected-windows nil)
-          (dolist (elem registers)
+          (dolist (elem (sort registers :key #'car))
             (when (cdr elem)
               (let ((beg (point)))
                 (insert (funcall register-preview-function elem))
@@ -520,7 +520,7 @@ Interactively, prompt for REGISTER using `register-read-with-preview'."
   "Go to location stored in REGISTER, or restore configuration stored there.
 Push the mark if going to the location moves point, unless called in succession.
 If the register contains a file name, find that file.
-If the register contains a buffer name, switch to that buffer.
+If the register references a buffer, switch to that buffer.
 If the register contains a window configuration (one frame) or a frameset
 \(all frames), restore the configuration of that frame or of all frames
 accordingly.
@@ -577,8 +577,24 @@ With a prefix argument, prompt for BUFFER as well."
   (set-register register (cons 'buffer buffer)))
 
 (defun register--get-method-type (val genfun &optional other-args-type)
-  (let* ((type (cl-type-of val))
+  ;; Try and return the specializer used in the most specific method
+  ;; applicable to argument VAL in generic function GENFUN.
+  ;; VAL is assumed to be the first argument and OTHER-ARGS-TYPE
+  ;; is a list of types for the other arguments.
+  ;; Go through all the types of VAL (from most specific to least specific)
+  ;; and return the first for which we can find a method with that
+  ;; type as specializer.
+  ;; FIXME: This is ad-hoc and does not handle all possible cases.
+  ;; We should instead do what `cl-generic' does during dispatch,
+  ;; i.e. get the set of generalizers used for the first arg of this generic
+  ;; function, use them to compute the TAGs corresponding to VAL (which
+  ;; we approximate here in TYPE) and then use those TAGs to compute the
+  ;; corresponding set of specializers (which we approximate here in TYPES),
+  ;; then look for the best matching method.
+  (let* ((type (or (oclosure-type val) (cl-type-of val)))
 	 (types (cl--class-allparents (cl--find-class type))))
+    (if (eq type 'cons) (push `(head ,(car val)) types))
+    (push `(eql ',val) types)
     (while (and types (not (cl-find-method genfun nil
                                            (cons (car types) other-args-type))))
       (setq types (cdr types)))
@@ -587,12 +603,20 @@ With a prefix argument, prompt for BUFFER as well."
 (defun register--jumpable-p (regval)
   "Return non-nil if `register-val-insert' is implemented for REGVAL."
   (pcase (register--get-method-type regval 'register-val-jump-to '(t))
+    ;; The only applicable method is one with the `t' specializer,
+    ;; i.e. the default method which signals an error.
     ('t nil)
+    ;; The best applicable method is that for `registerv' objects
+    ;; which works only if there's a function in `registerv-jump-func'.
     ('registerv (registerv-jump-func regval))
+    ;; The best applicable method is the one below for register values of
+    ;; type `cons' so return non-nil for those values supported by that method.
     ('cons
      (or (frame-configuration-p (car regval))
 	 (window-configuration-p (car regval))
 	 (memq (car regval) '(file buffer file-query))))
+    ;; There's another method that handles VAL.
+    ;; Presumably its presence implies that we can "jump" to that value.
     (type type)))
 
 (cl-defgeneric register-val-jump-to (_val _arg)

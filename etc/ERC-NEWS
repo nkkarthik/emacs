@@ -1,6 +1,6 @@
 ERC NEWS
 
-Copyright (C) 2006-2025 Free Software Foundation, Inc.
+Copyright (C) 2006-2026 Free Software Foundation, Inc.
 See the end of the file for license conditions.
 
 Please send ERC bug reports to 'bug-gnu-emacs@gnu.org',
@@ -10,6 +10,57 @@ If possible, use 'M-x erc-bug' or 'M-x report-emacs-bug'.
 This file is about changes in ERC, the powerful, modular, and
 extensible IRC (Internet Relay Chat) client distributed with
 GNU Emacs since Emacs version 22.1.
+
+
+* Changes in ERC 5.7
+
+** Changes in the library API.
+
+*** Module setup runs in query buffers on reconnect.
+A module's setup would always run in channel buffers on reconnect, due
+to channels being rejoined, but query buffers lacked a similar
+opportunity to reinitialize their state for the new session.  This is no
+longer the case.
+
+*** Local modules activate in preferred order instead of in reverse.
+In recent versions, ERC has enabled local modules in the reverse order
+of that produced by the "set" function used by 'setopt' and the Custom
+UI for the option 'erc-modules'.  Specifically, Built-in locals were
+activated in reverse lexicographic order after third-party ones, which
+were simply reversed as given.  Now, just like with global modules, ERC
+preserves the preferred order when activating local modules for new
+sessions.
+
+
+* Changes in ERC 5.6.2
+
+** Option 'erc-log-insert-log-on-open' can be a function.
+Rather than insert redundant logs into all buffers when reconnecting,
+which is what happens when this option is set to t, ERC 5.6.2 allows
+users to exercise more control by specifying a predicate.  The provided
+'erc-log-new-target-buffer-p' tells ERC to only insert logs when
+creating a new target buffer, such as when issuing a "/JOIN" or a
+"/QUERY" or when connecting for the first time with autojoin configured.
+
+** Changes in the library API.
+
+*** Function 'erc-log-setup-logging' deprecated.
+In order to ensure proper buffer-local setup, the 'log' module has
+always run this function somewhat indiscriminately and overly often.
+This might be fine were it not for the function's interest in the option
+'erc-log-insert-log-on-open' and its consequent altering of buffer text
+in a manner only conducive to buffer creation.  The module now conducts
+such business in a tidier and more internal fashion that no longer has
+any use for the function nor its presence in 'erc-connect-pre-hook'.
+
+*** Accessors like 'erc-channel-user-voice' may ignore assignments.
+ERC now silently ignores attempts to enable certain status flags on
+'erc-channel-user' objects if the connection's "PREFIX" parameter omits
+them.  In the future, ERC will likely signal an error if such an attempt
+is made.  Users can preview this potentially disruptive behavior by
+setting the new variable 'erc-channel-user-signal-if-status-unknown' to
+t.  This change stems from a bug fix for a regression affecting ERC 5.6
+and 5.6.1 in which these accessors mishandled unsupported flags.
 
 
 * Changes in ERC 5.6.1
@@ -36,6 +87,10 @@ The command 'erc-fill-wrap-cycle-visual-movement' was mistakenly given
 the key binding "C-c a" in an inadvertent holdover from development.  It
 has been removed.
 
+** The 'fill-wrap' module no longer depends on 'scrolltobottom'.
+This change also affects the option 'erc-fill-function' when it's set to
+'erc-fill-wrap'.
+
 ** Updated defaults for the 'track' module's face-list options.
 The default values of options 'erc-track-faces-priority-list' and
 'erc-track-faces-normal-list' have both gained a face for buttonized
@@ -50,8 +105,8 @@ ERC buffers as having been read.
 ** An arguably less distracting 'erc-nicks-track-faces' variant.
 Setting this option to t tells the 'track' module to have the mode-line
 indicator stick with the most recent speaker's face, even when they're
-monologuing, instead of alternating between it and the highest ranked
-'erc-track-faces-normal-list' member in a given message.
+the only speaker, instead of alternating between it and the highest
+ranked 'erc-track-faces-normal-list' member in a given message.
 
 ** Module 'querypoll' has left 'goodies' and moved in with 'notify'.
 The 'querypoll' module was initially placed in 'erc-goodies' even though

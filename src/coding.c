@@ -1,5 +1,5 @@
 /* Coding system handler (conversion, detection, etc).
-   Copyright (C) 2001-2025 Free Software Foundation, Inc.
+   Copyright (C) 2001-2026 Free Software Foundation, Inc.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
      2005, 2006, 2007, 2008, 2009, 2010, 2011
      National Institute of Advanced Industrial Science and Technology (AIST)
@@ -159,6 +159,9 @@ detect_coding_XXX (struct coding_system *coding,
   const unsigned char *src = coding->source;
   const unsigned char *src_end = coding->source + coding->src_bytes;
   bool multibytep = coding->src_multibyte;
+  /* Some encodings do not need this variable, however it is incremented in the
+     ONE_MORE_BYTE macro.  In that case mark it with MAYBE_UNUSED to silence
+     compiler warnings.  */
   ptrdiff_t consumed_chars = 0;
   int found = 0;
   ...;
@@ -652,11 +655,6 @@ growable_destination (struct coding_system *coding)
     consumed_chars++;					\
   } while (0)
 
-/* Suppress clang warnings about consumed_chars never being used.
-   Although correct, the warnings are too much trouble to code around.  */
-#if 13 <= __clang_major__ - defined __apple_build_version__
-# pragma clang diagnostic ignored "-Wunused-but-set-variable"
-#endif
 
 /* Safely get two bytes from the source text pointed by SRC which ends
    at SRC_END, and set C1 and C2 to those bytes while skipping the
@@ -1135,7 +1133,7 @@ detect_coding_utf_8 (struct coding_system *coding,
   const unsigned char *src = coding->source, *src_base;
   const unsigned char *src_end = coding->source + coding->src_bytes;
   bool multibytep = coding->src_multibyte;
-  ptrdiff_t consumed_chars = 0;
+  MAYBE_UNUSED ptrdiff_t consumed_chars = 0;
   bool bom_found = 0;
   ptrdiff_t nchars = coding->head_ascii;
 
@@ -1843,7 +1841,7 @@ detect_coding_emacs_mule (struct coding_system *coding,
   const unsigned char *src = coding->source, *src_base;
   const unsigned char *src_end = coding->source + coding->src_bytes;
   bool multibytep = coding->src_multibyte;
-  ptrdiff_t consumed_chars = 0;
+  MAYBE_UNUSED ptrdiff_t consumed_chars = 0;
   int c;
   int found = 0;
 
@@ -2933,7 +2931,7 @@ detect_coding_iso_2022 (struct coding_system *coding,
   bool single_shifting = 0;
   int id;
   int c, c1;
-  ptrdiff_t consumed_chars = 0;
+  MAYBE_UNUSED ptrdiff_t consumed_chars = 0;
   int i;
   int rejected = 0;
   int found = 0;
@@ -3524,7 +3522,11 @@ decode_coding_iso_2022 (struct coding_system *coding)
 	  if (c1 == ISO_CODE_ESC)
 	    {
 	      if (src + 1 >= src_end)
-		goto no_more_source;
+		{
+		  record_conversion_result
+		    (coding, CODING_RESULT_INSUFFICIENT_SRC);
+		  goto no_more_source;
+		}
 	      *charbuf++ = ISO_CODE_ESC;
 	      char_offset++;
 	      if (src[0] == '%' && src[1] == '@')
@@ -4317,7 +4319,7 @@ encode_designation_at_bol (struct coding_system *coding,
   /* Table of charsets to be designated to each graphic register.  */
   int r[4];
   int c, found = 0, reg;
-  ptrdiff_t produced_chars = 0;
+  MAYBE_UNUSED ptrdiff_t produced_chars = 0;
   bool multibytep = coding->dst_multibyte;
   Lisp_Object attrs;
   Lisp_Object charset_list;
@@ -4579,7 +4581,7 @@ detect_coding_sjis (struct coding_system *coding,
   const unsigned char *src = coding->source, *src_base;
   const unsigned char *src_end = coding->source + coding->src_bytes;
   bool multibytep = coding->src_multibyte;
-  ptrdiff_t consumed_chars = 0;
+  MAYBE_UNUSED ptrdiff_t consumed_chars = 0;
   int found = 0;
   int c;
   Lisp_Object attrs, charset_list;
@@ -4634,7 +4636,7 @@ detect_coding_big5 (struct coding_system *coding,
   const unsigned char *src = coding->source, *src_base;
   const unsigned char *src_end = coding->source + coding->src_bytes;
   bool multibytep = coding->src_multibyte;
-  ptrdiff_t consumed_chars = 0;
+  MAYBE_UNUSED ptrdiff_t consumed_chars = 0;
   int found = 0;
   int c;
 
@@ -5072,7 +5074,7 @@ detect_coding_ccl (struct coding_system *coding,
   const unsigned char *src = coding->source, *src_base;
   const unsigned char *src_end = coding->source + coding->src_bytes;
   bool multibytep = coding->src_multibyte;
-  ptrdiff_t consumed_chars = 0;
+  MAYBE_UNUSED ptrdiff_t consumed_chars = 0;
   int found = 0;
   unsigned char *valids;
   ptrdiff_t head_ascii = coding->head_ascii;
@@ -5367,7 +5369,7 @@ detect_coding_charset (struct coding_system *coding,
   const unsigned char *src = coding->source, *src_base;
   const unsigned char *src_end = coding->source + coding->src_bytes;
   bool multibytep = coding->src_multibyte;
-  ptrdiff_t consumed_chars = 0;
+  MAYBE_UNUSED ptrdiff_t consumed_chars = 0;
   Lisp_Object attrs, valids, name;
   int found = 0;
   ptrdiff_t head_ascii = coding->head_ascii;
@@ -6330,27 +6332,6 @@ check_utf_8 (struct coding_system *coding)
   return nchars;
 }
 
-
-/* Return whether STRING is a valid UTF-8 string.  STRING must be a
-   unibyte string.  */
-
-bool
-utf8_string_p (Lisp_Object string)
-{
-  eassert (!STRING_MULTIBYTE (string));
-  struct coding_system coding;
-  setup_coding_system (Qutf_8_unix, &coding);
-  /* We initialize only the fields that check_utf_8 accesses.  */
-  coding.head_ascii = -1;
-  coding.src_pos = 0;
-  coding.src_pos_byte = 0;
-  coding.src_chars = SCHARS (string);
-  coding.src_bytes = SBYTES (string);
-  coding.src_object = string;
-  coding.eol_seen = EOL_SEEN_NONE;
-  return check_utf_8 (&coding) != -1;
-}
-
 /* Like make_string, but always returns a multibyte Lisp string, and
    avoids decoding if TEXT is encoded in UTF-8.  */
 Lisp_Object
@@ -7117,7 +7098,7 @@ produce_chars (struct coding_system *coding, Lisp_Object translation_table,
 	  if (coding->src_multibyte)
 	    {
 	      bool multibytep = 1;
-	      ptrdiff_t consumed_chars = 0;
+	      MAYBE_UNUSED ptrdiff_t consumed_chars = 0;
 
 	      while (1)
 		{

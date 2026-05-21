@@ -1,6 +1,6 @@
 ;;; pcvs.el --- a front-end to CVS  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1991-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1991-2026 Free Software Foundation, Inc.
 
 ;; Author: The PCL-CVS Trust <pcl-cvs@cyclic.com>
 ;;	Per Cederqvist <ceder@lysator.liu.se>
@@ -140,6 +140,10 @@
 
 (defvar-keymap cvs-mode-diff-map
   :name "Diff"
+  ;; This is necessary to allow correct handling of
+  ;; \\[cvs-mode-diff-map] in substitute-command-keys.
+  :prefix t
+
   "E" (cons "imerge" #'cvs-mode-imerge)
   "=" #'cvs-mode-diff
   "e" (cons "idiff" #'cvs-mode-idiff)
@@ -150,9 +154,6 @@
   "r" (cons "repository" #'cvs-mode-diff-repository)
   "y" (cons "yesterday" #'cvs-mode-diff-yesterday)
   "v" (cons "vendor" #'cvs-mode-diff-vendor))
-;; This is necessary to allow correct handling of \\[cvs-mode-diff-map]
-;; in substitute-command-keys.
-(fset 'cvs-mode-diff-map cvs-mode-diff-map)
 
 (defvar-keymap cvs-mode-map
   :full t

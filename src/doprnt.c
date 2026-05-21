@@ -1,7 +1,7 @@
 /* Output like sprintf to a buffer of specified size.    -*- coding: utf-8 -*-
    Also takes args differently: pass one pointer to the end
    of the format string in addition to the format string itself.
-   Copyright (C) 1985, 2001-2025 Free Software Foundation, Inc.
+   Copyright (C) 1985, 2001-2026 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -434,7 +434,7 @@ doprnt (char *buffer, ptrdiff_t bufsize, const char *format,
 		{
 		  /* Truncate the string at character boundary.  */
 		  tem = bufsize;
-		  do
+		  while (tem != 0)
 		    {
 		      tem--;
 		      if (CHAR_HEAD_P (string[tem]))
@@ -444,7 +444,6 @@ doprnt (char *buffer, ptrdiff_t bufsize, const char *format,
 			  break;
 			}
 		    }
-		  while (tem != 0);
 
 		  memcpy (bufptr, string, tem);
 		  while (tem < bufsize)

@@ -1,6 +1,6 @@
 /* Functions for the X Window System.
 
-Copyright (C) 1989, 1992-2025 Free Software Foundation, Inc.
+Copyright (C) 1989, 1992-2026 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -213,7 +213,7 @@ check_x_display_info (Lisp_Object object)
    Store the screen positions of frame F into XPTR and YPTR.
    These are the positions of the containing window manager window,
    not Emacs's own window.  */
-void
+static void
 x_real_pos_and_offsets (struct frame *f,
                         int *left_offset_x,
                         int *right_offset_x,
@@ -1146,7 +1146,24 @@ xg_set_icon (struct frame *f, Lisp_Object file)
 bool
 xg_set_icon_from_xpm_data (struct frame *f, const char **data)
 {
+  /* gdk-pixbuf 2.44 deprecated gdk_pixbuf_new_from_xpm_data.
+     Emacs should convert assets to PNG and use gdk_pixbuf_new_from_stream
+     with a GMemoryInputStream, or transition to PNG via GResource.
+     Pacify GCC for now.  */
+#if (defined GDK_PIXBUF_VERSION_2_44 \
+     && GDK_PIXBUF_VERSION_2_44 <= GDK_PIXBUF_VERSION_MIN_REQUIRED \
+     && (GNUC_PREREQ (4, 6, 0) || defined __clang__))
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
   GdkPixbuf *pixbuf = gdk_pixbuf_new_from_xpm_data (data);
+
+#if (defined GDK_PIXBUF_VERSION_2_44 \
+     && GDK_PIXBUF_VERSION_2_44 <= GDK_PIXBUF_VERSION_MIN_REQUIRED \
+     && (GNUC_PREREQ (4, 6, 0) || defined __clang__))
+# pragma GCC diagnostic pop
+#endif
 
   if (!pixbuf)
     return false;
@@ -1381,10 +1398,9 @@ x_set_mouse_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
   if (x_had_errors_p (dpy))
     {
       const char *bad_cursor_name = NULL;
-      /* Bounded by X_ERROR_MESSAGE_SIZE in xterm.c.  */
-      size_t message_length = strlen (cursor_data.error_string);
-      char *xmessage = alloca (1 + message_length);
-      memcpy (xmessage, cursor_data.error_string, message_length);
+      char xmessage[X_ERROR_MESSAGE_SIZE];
+      eassert (strlen (cursor_data.error_string) < sizeof xmessage);
+      strcpy (xmessage, cursor_data.error_string);
 
       x_uncatch_errors_after_check ();
 
@@ -1856,7 +1872,14 @@ x_set_tool_bar_lines (struct frame *f, Lisp_Object value, Lisp_Object oldval)
 
   /* Treat tool bars like menu bars.  */
   if (FRAME_MINIBUF_ONLY_P (f))
-    return;
+    {
+#ifdef USE_GTK
+      /* Make sure implied resizing of minibuffer-only frames can be
+	 inhibited too.  */
+      f->tool_bar_resized = true;
+#endif
+      return;
+    }
 
   /* Use VALUE only if an int >= 0.  */
   if (RANGED_FIXNUMP (0, value, INT_MAX))
@@ -1888,6 +1911,9 @@ x_change_tool_bar_height (struct frame *f, int height)
       if (FRAME_EXTERNAL_TOOL_BAR (f))
         free_frame_tool_bar (f);
       FRAME_EXTERNAL_TOOL_BAR (f) = false;
+      /* Make sure implied resizing of frames without initial tool bar
+	 can be inhibited too.  */
+      f->tool_bar_resized = true;
     }
 #else /* !USE_GTK */
   int unit = FRAME_LINE_HEIGHT (f);
@@ -5010,6 +5036,8 @@ This function is an internal primitive--use `make-frame' instead.  */)
 
   XSETFRAME (frame, f);
 
+  frame_set_id_from_params (f, parms);
+
   f->terminal = dpyinfo->terminal;
 
   f->output_method = output_x_window;
@@ -6636,7 +6664,8 @@ Internal use only, use `display-monitor-attributes-list' instead.  */)
 #else
 	  i = gdk_screen_get_monitor_at_window (gscreen, gwin);
 #endif
-	  ASET (monitor_frames, i, Fcons (frame, AREF (monitor_frames, i)));
+	  if (0 <= i && i < n_monitors)
+	    ASET (monitor_frames, i, Fcons (frame, AREF (monitor_frames, i)));
 	}
     }
 
@@ -10028,7 +10057,7 @@ DEFUN ("x-gtk-debug", Fx_gtk_debug, Sx_gtk_debug, 1, 1, 0,
 #endif /* HAVE_GTK3 */
 #endif	/* USE_GTK */
 
-DEFUN ("x-display-set-last-user-time", Fx_display_last_user_time,
+DEFUN ("x-display-set-last-user-time", Fx_display_set_last_user_time,
        Sx_display_set_last_user_time, 1, 2, 0,
        doc: /* Set the last user time of TERMINAL to TIME-OBJECT.
 TIME-OBJECT is the X server time, in milliseconds, of the last user
@@ -10453,10 +10482,6 @@ default and usually works with most desktops.  Some desktop environments
 (GNOME shell in particular when using the mutter window manager),
 however, may refuse to resize a child frame when Emacs is built with
 GTK3.  For those environments, the two settings below are provided.
-
-If this equals the symbol `hide', Emacs temporarily hides the child
-frame during resizing.  This approach seems to work reliably, may
-however induce some flicker when the frame is made visible again.
 
 If this equals the symbol `resize-mode', Emacs uses GTK's resize mode to
 always trigger an immediate resize of the child frame.  This method is

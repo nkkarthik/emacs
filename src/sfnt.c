@@ -1,6 +1,6 @@
 /* TrueType format font support for GNU Emacs.
 
-Copyright (C) 2023-2025 Free Software Foundation, Inc.
+Copyright (C) 2023-2026 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -736,6 +736,7 @@ sfnt_read_cmap_format_12 (int fd,
     return NULL;
 
   /* Allocate a buffer of sufficient size.  */
+  eassert (length < UINT32_MAX - sizeof *format12);
   format12 = xmalloc (length + sizeof *format12);
   format12->format = header->format;
   format12->reserved = header->length;
@@ -5790,6 +5791,10 @@ sfnt_read_name_table (int fd, struct sfnt_offset_subtable *subtable)
 			 string_offset, uint16_t);
 
   if (directory->length < required)
+    return NULL;
+
+  /* Avoid overflow in xmalloc argument below.  */
+  if (directory->length > UINT_MAX - sizeof *name)
     return NULL;
 
   /* Allocate enough to hold the name table and variable length

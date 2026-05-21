@@ -1,6 +1,6 @@
 ;;; eww.el --- Emacs Web Wowser  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2013-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2026 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: html
@@ -148,7 +148,9 @@ If nil, buffers will require manual reload, and will contain the text
 specified in `eww-restore-reload-prompt' instead of the actual Web
 page contents."
   :version "25.1"
-  :type '(choice (const :tag "Restore all automatically" t)
+  :type '(choice (choice :tag "Restore all automatically" :value t
+                         (const t)
+                         (const auto))
                  (const :tag "Require manual reload" nil)))
 
 (defcustom eww-restore-reload-prompt
@@ -881,30 +883,34 @@ This replaces the region with the preprocessed HTML."
 
 (defun eww-handle-link (dom)
   (let* ((rel (dom-attr dom 'rel))
-	 (href (dom-attr dom 'href))
-	 (where (assoc
-		 ;; The text associated with :rel is case-insensitive.
-		 (if rel (downcase rel))
-		 '(("next" . :next)
-		   ;; Texinfo uses "previous", but HTML specifies
-		   ;; "prev", so recognize both.
-		   ("previous" . :previous)
-		   ("prev" . :previous)
-		   ;; HTML specifies "start" but also "contents",
-		   ;; and Gtk seems to use "home".  Recognize
-		   ;; them all; but store them in different
-		   ;; variables so that we can readily choose the
-		   ;; "best" one.
-		   ("start" . :start)
-		   ("home" . :home)
-		   ("contents" . :contents)
-		   ("up" . :up)))))
-    (when (and href where)
-      (when (memq (cdr where) '(:next :previous))
-        ;; Multi-page isearch support.
-        (setq-local multi-isearch-next-buffer-function
-                    #'eww-isearch-next-buffer))
-      (plist-put eww-data (cdr where) href))))
+         (href (dom-attr dom 'href)))
+    (when (and href rel)
+      ;; `rel' is a case-insensitive whitespace-separated set, but
+      ;; without considering vertical tab "\v" whitespace (as defined at
+      ;; https://infra.spec.whatwg.org/#ascii-whitespace).
+      (dolist (relation (split-string (downcase rel) "[\t\n\f\r ]+"))
+        (when-let*
+            ((where (assoc
+                     relation
+                     '(("next" . :next)
+                       ;; Texinfo uses "previous", but HTML specifies
+                       ;; "prev", so recognize both.
+                       ("previous" . :previous)
+                       ("prev" . :previous)
+                       ;; HTML specifies "start" but also "contents",
+                       ;; and Gtk seems to use "home".  Recognize
+                       ;; them all; but store them in different
+                       ;; variables so that we can readily choose the
+                       ;; "best" one.
+                       ("start" . :start)
+                       ("home" . :home)
+                       ("contents" . :contents)
+                       ("up" . :up)))))
+          (when (memq (cdr where) '(:next :previous))
+            ;; Multi-page isearch support.
+            (setq-local multi-isearch-next-buffer-function
+                        #'eww-isearch-next-buffer))
+          (plist-put eww-data (cdr where) href))))))
 
 (defvar eww-redirect-level 1)
 
@@ -1356,7 +1362,6 @@ This consults the entries in `eww-readable-urls' (which see)."
   "<mouse-9>" #'eww-forward-url
 
   :menu '("Eww"
-          ["Exit" quit-window t]
           ["Close browser" quit-window t]
           ["Reload" eww-reload t]
           ["Follow URL in new buffer" eww-open-in-new-buffer]
@@ -2241,11 +2246,12 @@ Interactively, EVENT is the value of `last-nonmenu-event'."
 				    (plist-get eww-data :url)))))))
       (eww-browse-url
        (concat
-	(if (cdr (assq :action form))
-	    (shr-expand-url (cdr (assq :action form)) (plist-get eww-data :url))
-	  (plist-get eww-data :url))
-	"?"
-	(mm-url-encode-www-form-urlencoded values))))))
+        (shr-expand-url
+         (or (cdr (assq :action form))
+             (car (url-path-and-query (url-generic-parse-url (plist-get eww-data :url)))))
+         (plist-get eww-data :url))
+        "?"
+        (mm-url-encode-www-form-urlencoded values))))))
 
 (defun eww-browse-with-external-browser (&optional url)
   "Browse the current URL with an external browser.
@@ -2256,7 +2262,8 @@ external browser."
   (setq url (or url (plist-get eww-data :url)))
   (if (eq 'external (browse-url--browser-kind
                      browse-url-secondary-browser-function url))
-      (funcall browse-url-secondary-browser-function url)
+      (let ((browse-url-browser-function browse-url-secondary-browser-function))
+        (browse-url url))
     (browse-url-with-browser-kind 'external url)))
 
 (defun eww-remove-tracking (url)
@@ -2421,23 +2428,23 @@ If CHARSET is nil then use UTF-8."
   "Prompt for an EWW buffer to display in the selected window.
 If no such buffer exist, fallback to calling `eww'."
   (interactive nil eww-mode)
-  (let ((list (cl-loop for buf in (nreverse (buffer-list))
-                       if (and (eww--buffer-p buf)
-                               (not (eq buf (current-buffer))))
-                       collect (buffer-name buf))))
+  (let ((list (seq-filter
+               (lambda (buf)
+                 (and (eww--buffer-p buf) (not (eq buf (current-buffer)))))
+               (buffer-list))))
     (if list
         (pop-to-buffer-same-window
          (if (length= list 1)
              (car list)
            (completing-read "Switch to EWW buffer: "
                             (completion-table-with-metadata
-                             list
+                             (mapcar #'buffer-name list)
                              `((category . buffer)
                                (annotation-function
                                 . ,(lambda (buf)
                                      (with-current-buffer buf
                                        (format " %s" (eww-current-url)))))))
-                            nil t)))
+                            nil t nil nil (car-safe list))))
       (call-interactively #'eww))))
 
 (defun eww-toggle-fonts ()

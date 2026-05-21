@@ -1,6 +1,6 @@
 ;;; tab-line.el --- window-local tabs with window buffers -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2019-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2019-2026 Free Software Foundation, Inc.
 
 ;; Author: Juri Linkov <juri@linkov.net>
 ;; Keywords: windows tabs
@@ -42,7 +42,9 @@
   "Functions called to modify tab faces.
 Each function is called with five arguments: the tab, a list of
 all tabs, the face returned by the previously called modifier,
-whether the tab is a buffer, and whether the tab is selected."
+whether the tab is a buffer (when nil, the buffer is extracted from
+the association list using the key `buffer'), and whether the tab
+is selected."
   :type '(repeat
           (choice (function-item tab-line-tab-face-special)
                   (function-item tab-line-tab-face-modified)
@@ -52,7 +54,11 @@ whether the tab is a buffer, and whether the tab is selected."
   :group 'tab-line
   :version "28.1")
 
-(defgroup tab-line-faces '((tab-line custom-face)) ; tab-line is defined in faces.el
+(defgroup tab-line-faces
+  ;; These faces are defined in faces.el
+  '((tab-line custom-face)
+    (tab-line-active custom-face)
+    (tab-line-inactive custom-face))
   "Faces used in the tab line."
   :group 'tab-line
   :group 'faces
@@ -60,20 +66,26 @@ whether the tab is a buffer, and whether the tab is selected."
 
 (defface tab-line-tab
   '((default :inherit tab-line)
-    (((class color) (min-colors 88))
+    (((class color) (min-colors 88) (background light))
      :box (:line-width 1 :style released-button))
+    (((class color) (min-colors 88) (background dark))
+     :box (:line-width 1 :style released-button)
+     :background "grey40"
+     :foreground "white")
     (t :inverse-video nil))
   "Tab line face for selected tab."
-  :version "27.1"
+  :version "31.1"
   :group 'tab-line-faces)
 
 (defface tab-line-tab-inactive
   '((default :inherit tab-line-tab)
-    (((class color) (min-colors 88))
+    (((class color) (min-colors 88) (background light))
      :background "grey75")
+    (((class color) (min-colors 88) (background dark))
+     :background "grey20")
     (t :inverse-video t))
   "Tab line face for non-selected tab."
-  :version "27.1"
+  :version "31.1"
   :group 'tab-line-faces)
 
 (defface tab-line-tab-inactive-alternate
@@ -113,20 +125,26 @@ function `tab-line-tab-face-group'."
 
 (defface tab-line-tab-current
   '((default :inherit tab-line-tab)
-    (((class color) (min-colors 88))
-     :background "grey85"))
+    (((class color) (min-colors 88) (background light))
+     :background "grey85")
+    (((class color) (min-colors 88) (background dark))
+     :background "grey40"))
   "Tab line face for tab with current buffer in selected window."
-  :version "27.1"
+  :version "31.1"
   :group 'tab-line-faces)
 
 (defface tab-line-highlight
-  '((((class color) (min-colors 88))
+  '((((class color) (min-colors 88) (background light))
      :box (:line-width 1 :style released-button)
      :background "grey85"
      :foreground "black")
+    (((class color) (min-colors 88) (background dark))
+     :box (:line-width 1 :style released-button)
+     :background "grey40"
+     :foreground "white")
     (t :inverse-video nil))
   "Tab line face for highlighting."
-  :version "27.1"
+  :version "31.1"
   :group 'tab-line-faces)
 
 (defface tab-line-close-highlight
@@ -418,7 +436,9 @@ Used only for `tab-line-tabs-mode-buffers' and `tab-line-tabs-buffer-groups'.")
                              (funcall tab-line-tabs-buffer-list-function)))))
 
 (defun tab-line-tab-modified-p (tab buffer-p)
-  "Return t if TAB is modified."
+  "Return t if TAB's buffer is modified.
+BUFFER-P specifies whether the tab is a buffer; if nil, the buffer
+is extracted from the association list TAB using the key `buffer'."
   (let ((buffer (if buffer-p tab (cdr (assq 'buffer tab)))))
     (when (and buffer (buffer-file-name buffer) (buffer-modified-p buffer))
       t)))
@@ -565,6 +585,30 @@ generate the group name."
                          sorted-buffers)))
       (cons group-tab tabs))))
 
+(defcustom tab-line-tabs-window-buffers-filter-function
+  #'identity
+  "Filter which buffers should be displayed in the tab line."
+  :type '(choice function
+                 (const :tag "Show all buffers" identity)
+                 (const :tag "Omit excluded buffers" tab-line-tabs-non-excluded))
+  :group 'tab-line
+  :version "31.1")
+
+(defvar tab-line-exclude-buffers)
+(defvar tab-line-exclude-modes)
+
+(defun tab-line-tabs-non-excluded (buffers)
+  "Filter BUFFERS to remove excluded buffers from the list.
+Intended to be used in `tab-line-tabs-window-buffers-filter-function'."
+  (seq-remove
+   (lambda (b)
+     (or (memq (buffer-local-value 'major-mode b)
+               tab-line-exclude-modes)
+         (buffer-match-p tab-line-exclude-buffers b)
+         (get (buffer-local-value 'major-mode b) 'tab-line-exclude)
+         (buffer-local-value 'tab-line-exclude b)))
+   buffers))
+
 (defun tab-line-tabs-window-buffers ()
   "Return a list of tabs that should be displayed in the tab line.
 By default returns a list of window buffers, i.e. buffers previously
@@ -581,9 +625,11 @@ variable `tab-line-tabs-function'."
          (prev-buffers (seq-filter #'buffer-live-p prev-buffers))
          ;; Remove next-buffers from prev-buffers
          (prev-buffers (seq-difference prev-buffers next-buffers)))
-    (append (reverse prev-buffers)
-            (list buffer)
-            next-buffers)))
+    (funcall
+     tab-line-tabs-window-buffers-filter-function
+     (append (reverse prev-buffers)
+             (list buffer)
+             next-buffers))))
 
 (defun tab-line-tabs-fixed-window-buffers ()
   "Like `tab-line-tabs-window-buffers' but keep stable sorting order.
@@ -713,9 +759,11 @@ inherit from `tab-line-tab-inactive-alternate'.  For use in
 
 (defun tab-line-tab-face-special (tab _tabs face buffer-p _selected-p)
   "Return FACE for TAB according to whether its buffer is special.
-When TAB is a non-file-visiting buffer, make FACE inherit from
-`tab-line-tab-special'.  For use in
-`tab-line-tab-face-functions'."
+TAB is either a buffer (if BUFFER-P is non-nil), or an association
+list with the buffer given by the key `buffer'.
+When TAB specifies a non-file-visiting buffer, make FACE inherit
+from `tab-line-tab-special'.
+For use in `tab-line-tab-face-functions'."
   (let ((buffer (if buffer-p tab (cdr (assq 'buffer tab)))))
     (when (and buffer (not (buffer-file-name buffer)))
       (setf face `(:inherit (tab-line-tab-special ,face)))))
@@ -723,15 +771,19 @@ When TAB is a non-file-visiting buffer, make FACE inherit from
 
 (defun tab-line-tab-face-modified (tab _tabs face buffer-p _selected-p)
   "Return FACE for TAB according to whether its buffer is modified.
-When TAB is a modified, file-backed buffer, make FACE inherit
-from `tab-line-tab-modified'.  For use in
-`tab-line-tab-face-functions'."
+TAB is either a buffer (if BUFFER-P is non-nil), or an association
+list with the buffer given by the key `buffer'.
+When TAB's buffer is a modified, file-backed buffer, make FACE inherit
+from `tab-line-tab-modified'.
+For use in `tab-line-tab-face-functions'."
   (when (tab-line-tab-modified-p tab buffer-p)
     (setf face `(:inherit (tab-line-tab-modified ,face))))
   face)
 
 (defun tab-line-tab-face-group (tab _tabs face _buffer-p _selected-p)
   "Return FACE for TAB according to whether it's a group tab.
+TAB is either a buffer (if BUFFER-P is non-nil), or an association
+list with the buffer given by the key `buffer'.
 For use in `tab-line-tab-face-functions'."
   (when (alist-get 'group-tab tab)
     (setf face `(:inherit (tab-line-tab-group ,face))))
@@ -812,13 +864,16 @@ the selected tab visible."
   (with-current-buffer tab-line-auto-hscroll-buffer
     (let ((truncate-partial-width-windows nil)
           (inhibit-modification-hooks t)
+          (face (if (mode-line-window-selected-p)
+                    'tab-line-active
+                  'tab-line-inactive))
           show-arrows)
       (setq truncate-lines nil
             word-wrap nil)
       (erase-buffer)
       (apply 'insert strings)
       (goto-char (point-min))
-      (add-face-text-property (point-min) (point-max) 'tab-line t)
+      (add-face-text-property (point-min) (point-max) face t)
       ;; Continuation means tab-line doesn't fit completely,
       ;; thus scroll arrows are needed for scrolling.
       (setq show-arrows (> (vertical-motion 1) 0))
@@ -840,7 +895,7 @@ the selected tab visible."
             (erase-buffer)
             (apply 'insert (reverse (seq-subseq strings 0 (1+ selected))))
             (goto-char (point-min))
-            (add-face-text-property (point-min) (point-max) 'tab-line)
+            (add-face-text-property (point-min) (point-max) face)
             (if (> (vertical-motion 1) 0)
                 (let* ((point (previous-single-property-change (point) 'tab))
                        (tab-prop (when point
@@ -861,13 +916,13 @@ the selected tab visible."
             (erase-buffer)
             (apply 'insert (seq-subseq strings (truncate hscroll) (1+ selected)))
             (goto-char (point-min))
-            (add-face-text-property (point-min) (point-max) 'tab-line)
+            (add-face-text-property (point-min) (point-max) face)
             (when (> (vertical-motion 1) 0)
               ;; Not visible already
               (erase-buffer)
               (apply 'insert (reverse (seq-subseq strings 0 (1+ selected))))
               (goto-char (point-min))
-              (add-face-text-property (point-min) (point-max) 'tab-line)
+              (add-face-text-property (point-min) (point-max) face)
               (when (> (vertical-motion 1) 0)
                 (let* ((point (previous-single-property-change (point) 'tab))
                        (tab-prop (when point
@@ -1241,14 +1296,54 @@ However, return the correct mouse position list if EVENT is a
       (event-start event)))
 
 
+(defcustom tab-line-define-keys t
+  "Define specific tab-line key bindings.
+If t, the default, key mappings for switching and moving tabs
+are defined.  If nil, do not define any key mappings."
+  :type 'boolean
+  :initialize #'custom-initialize-default
+  :set (lambda (sym val)
+         (tab-line--undefine-keys)
+         (set-default sym val)
+         ;; Enable the new keybindings
+         (tab-line--define-keys))
+  :group 'tab-line
+  :version "31.1")
+
+(defun tab-line--define-keys ()
+  "Install key bindings to switch between tabs if so configured."
+  (when tab-line-define-keys
+    (when (eq (keymap-lookup ctl-x-map "<left>") 'previous-buffer)
+      (keymap-set ctl-x-map "<left>" #'tab-line-switch-to-prev-tab))
+    (when (eq (keymap-lookup ctl-x-map "C-<left>") 'previous-buffer)
+      (keymap-set ctl-x-map "C-<left>" #'tab-line-switch-to-prev-tab))
+    (unless (keymap-lookup ctl-x-map "M-<left>")
+      (keymap-set ctl-x-map "M-<left>" #'tab-line-move-tab-backward))
+    (when (eq (keymap-lookup ctl-x-map "<right>") 'next-buffer)
+      (keymap-set ctl-x-map "<right>" #'tab-line-switch-to-next-tab))
+    (when (eq (keymap-lookup ctl-x-map "C-<right>") 'next-buffer)
+      (keymap-set ctl-x-map "C-<right>" #'tab-line-switch-to-next-tab))
+    (unless (keymap-lookup ctl-x-map "M-<right>")
+      (keymap-set ctl-x-map "M-<right>" #'tab-line-move-tab-forward))))
+
+(defun tab-line--undefine-keys ()
+  "Uninstall key bindings previously bound by `tab-line--define-keys'."
+  (when tab-line-define-keys
+    (when (eq (keymap-lookup ctl-x-map "<left>") 'tab-line-switch-to-prev-tab)
+      (keymap-set ctl-x-map "<left>" #'previous-buffer))
+    (when (eq (keymap-lookup ctl-x-map "C-<left>") 'tab-line-switch-to-prev-tab)
+      (keymap-set ctl-x-map "C-<left>" #'previous-buffer))
+    (when (eq (keymap-lookup ctl-x-map "M-<left>") 'tab-line-move-tab-backward)
+      (keymap-set ctl-x-map "M-<left>" nil))
+    (when (eq (keymap-lookup ctl-x-map "<right>") 'tab-line-switch-to-next-tab)
+      (keymap-set ctl-x-map "<right>" #'next-buffer))
+    (when (eq (keymap-lookup ctl-x-map "C-<right>") 'tab-line-switch-to-next-tab)
+      (keymap-set ctl-x-map "C-<right>" #'next-buffer))
+    (when (eq (keymap-lookup ctl-x-map "M-<right>") 'tab-line-move-tab-forward)
+      (keymap-set ctl-x-map "M-<right>" nil))))
+
 (defvar-keymap tab-line-mode-map
-  :doc "Keymap for keys of `tab-line-mode'."
-  "C-x <left>"    #'tab-line-switch-to-prev-tab
-  "C-x C-<left>"  #'tab-line-switch-to-prev-tab
-  "C-x M-<left>"  #'tab-line-move-tab-backward
-  "C-x <right>"   #'tab-line-switch-to-next-tab
-  "C-x C-<right>" #'tab-line-switch-to-next-tab
-  "C-x M-<right>" #'tab-line-move-tab-forward)
+  :doc "Keymap for keys of `tab-line-mode'.")
 
 (defvar-keymap tab-line-switch-repeat-map
   :doc "Keymap to repeat tab/buffer cycling.  Used in `repeat-mode'."
@@ -1338,7 +1433,10 @@ of `tab-line-exclude', are exempt from `tab-line-mode'."
 (define-globalized-minor-mode global-tab-line-mode
   tab-line-mode tab-line-mode--turn-on
   :group 'tab-line
-  :version "27.1")
+  :version "27.1"
+  (if global-tab-line-mode
+      (tab-line--define-keys)
+    (tab-line--undefine-keys)))
 
 
 (global-set-key [tab-line down-mouse-3] 'tab-line-context-menu)

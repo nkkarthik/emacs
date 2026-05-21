@@ -1,6 +1,6 @@
 ;;; tramp-container.el --- Tramp integration for Docker-like containers  -*- lexical-binding: t; -*-
 
-;; Copyright © 2022-2025 Free Software Foundation, Inc.
+;; Copyright © 2022-2026 Free Software Foundation, Inc.
 
 ;; Author: Brian Cully <bjc@kublai.com>
 ;; Maintainer: Michael Albinus <michael.albinus@gmx.de>
@@ -266,7 +266,7 @@ BODY is the backend specific code."
 		    tramp--last-hop-directory)
 	       tramp-compat-temporary-file-directory))
 	  (program (let ((tramp-verbose 0))
-		     (tramp-get-method-parameter
+		     (tramp-expand-args
 		      (make-tramp-file-name :method ,method)
 		      'tramp-login-program)))
 	  (vec (when (tramp-tramp-file-p default-directory)
@@ -427,8 +427,7 @@ Obey `tramp-kubernetes-context'"
 ;;;###tramp-autoload
 (defun tramp-kubernetes--context-namespace (vec)
   "The kubectl options for context and namespace as string."
-  (mapconcat
-   #'identity
+  (string-join
    (delq nil
 	 `(,(when-let* ((context (tramp-kubernetes--current-context vec)))
 	      (format "--context=%s" context))
@@ -657,10 +656,9 @@ see its function help for a description of the format."
    '((tramp-config-check . tramp-kubernetes--current-context-data)
      ;; This variable will be eval'ed in `tramp-expand-args'.
      (tramp-extra-expand-args
-      . (?a (tramp-kubernetes--container (car tramp-current-connection))
-	 ?h (tramp-kubernetes--pod (car tramp-current-connection))
-	 ?x (tramp-kubernetes--context-namespace
-	     (car tramp-current-connection)))))
+      ?a (tramp-kubernetes--container (car tramp-current-connection))
+      ?h (tramp-kubernetes--pod (car tramp-current-connection))
+      ?x (tramp-kubernetes--context-namespace (car tramp-current-connection))))
    "Default connection-local variables for remote kubernetes connections.")
 
  (connection-local-set-profile-variables
@@ -701,8 +699,8 @@ see its function help for a description of the format."
 		 (tramp-login-program ,tramp-distrobox-program)
 		 (tramp-login-args (("enter")
 				    ("-n" "%h")
-				    ("--" "%l")))
-		 ;(tramp-direct-async (,tramp-default-remote-shell "-c"))
+				    ("--") ("%l")))
+		 (tramp-direct-async (,tramp-default-remote-shell "-c"))
 		 (tramp-remote-shell ,tramp-default-remote-shell)
 		 (tramp-remote-shell-login ("-l"))
 		 (tramp-remote-shell-args ("-c"))
@@ -761,7 +759,14 @@ see its function help for a description of the format."
 				    ("--env"
 				     ,(format "TERM=%s" tramp-terminal-type))
 				    ("instance://%h")
-				    ("%h"))) ; Needed for multi-hop check.
+				    ;; Needed for multi-hop check,
+				    ;; ignored by the "shell" command.
+				    ("%h")))
+		 ;; `tramp-direct-async' must be used *instead* of `tramp-login-args'.
+		 ;; (tramp-direct-async (("exec")
+		 ;; 		      ("--env"
+		 ;; 		       ,(format "TERM=%s" tramp-terminal-type))
+		 ;; 		      ("instance://%h"))
 		 (tramp-remote-shell ,tramp-default-remote-shell)
 		 (tramp-remote-shell-login ("-l"))
 		 (tramp-remote-shell-args ("-c"))

@@ -1,6 +1,6 @@
 /* Interface definitions for display code.
 
-Copyright (C) 1985, 1993-1994, 1997-2025 Free Software Foundation, Inc.
+Copyright (C) 1985, 1993-1994, 1997-2026 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -960,6 +960,9 @@ struct glyph_row
      in last row when checking if row is fully visible.  */
   int extra_line_spacing;
 
+  /* Part of extra_line_spacing that should go above the line.  */
+  int extra_line_spacing_above;
+
   /* First position in this row.  This is the text position, including
      overlay position information etc, where the display of this row
      started, and can thus be less than the position of the first
@@ -1607,6 +1610,27 @@ struct glyph_string
 	 : estimate_mode_line_height				\
 	 (XFRAME ((W)->frame), CURRENT_HEADER_LINE_ACTIVE_FACE_ID (W)))))
 
+/* Return the desired face id for the tab line of a window, depending
+   on whether the window is selected or not, or if the window is the
+   scrolling window for the currently active minibuffer window.  */
+
+#define CURRENT_TAB_LINE_ACTIVE_FACE_ID_3(SELW, MBW, SCRW)    	\
+     ((!mode_line_in_non_selected_windows			\
+       || (SELW) == XWINDOW (selected_window)			\
+       || (minibuf_level > 0					\
+           && !NILP (minibuf_selected_window)			\
+           && (MBW) == XWINDOW (minibuf_window)			\
+           && (SCRW) == XWINDOW (minibuf_selected_window)))	\
+      ? TAB_LINE_ACTIVE_FACE_ID					\
+      : TAB_LINE_INACTIVE_FACE_ID)
+
+/* Return the desired face id for the tab line of window W.  */
+
+#define CURRENT_TAB_LINE_ACTIVE_FACE_ID(W)		\
+	 CURRENT_TAB_LINE_ACTIVE_FACE_ID_3(W, 		\
+					   XWINDOW (selected_window), \
+					   W)
+
 /* Return the current height of the tab line of window W.  If not known
    from W->tab_line_height, look at W's current glyph matrix, or return
    an estimation based on the height of the font of the face `tab-line'.  */
@@ -1618,7 +1642,7 @@ struct glyph_string
       = (MATRIX_TAB_LINE_HEIGHT ((W)->current_matrix)		\
 	 ? MATRIX_TAB_LINE_HEIGHT ((W)->current_matrix)		\
 	 : estimate_mode_line_height				\
-	     (XFRAME ((W)->frame), TAB_LINE_FACE_ID))))
+	 (XFRAME ((W)->frame), CURRENT_TAB_LINE_ACTIVE_FACE_ID (W)))))
 
 /* Return the height of the desired mode line of window W.  */
 
@@ -1940,7 +1964,9 @@ enum face_id
   INTERNAL_BORDER_FACE_ID,
   CHILD_FRAME_BORDER_FACE_ID,
   TAB_BAR_FACE_ID,
-  TAB_LINE_FACE_ID,
+  TAB_LINE_ACTIVE_FACE_ID,
+  TAB_LINE_INACTIVE_FACE_ID,
+  MARGIN_FACE_ID,
   BASIC_FACE_ID_SENTINEL
 };
 
@@ -2772,6 +2798,10 @@ struct it
      window systems only.)  */
   int extra_line_spacing;
 
+  /* Default amount of additional space in pixels above lines (for
+     window systems only).  */
+  int extra_line_spacing_above;
+
   /* Max extra line spacing added in this row.  */
   int max_extra_line_spacing;
 
@@ -3245,7 +3275,7 @@ struct image
   int face_font_height;
   int face_font_width;
 
-  /* True if this image has a `transparent' background -- that is, is
+  /* True if this image has a `transparent' background -- that is, it
      uses an image mask.  The accessor macro for this is
      `IMAGE_BACKGROUND_TRANSPARENT'.  */
   bool_bf background_transparent : 1;
@@ -3574,7 +3604,8 @@ extern ptrdiff_t compute_display_string_pos (struct text_pos *,
 					     struct bidi_string_data *,
 					     struct window *, bool, int *);
 extern ptrdiff_t compute_display_string_end (ptrdiff_t,
-					     struct bidi_string_data *);
+					     struct bidi_string_data *,
+					     struct window *);
 extern void produce_stretch_glyph (struct it *);
 extern int merge_glyphless_glyph_face (struct it *);
 extern void forget_escape_and_glyphless_faces (void);
@@ -3630,6 +3661,9 @@ extern void gui_union_rectangles (const Emacs_Rectangle *,
 				  const Emacs_Rectangle *,
 				  Emacs_Rectangle *);
 extern void gui_consider_frame_title (Lisp_Object);
+# ifndef HAVE_EXT_MENU_BAR
+extern void x_y_to_column_row (struct window *, int, int, int *, int *);
+# endif
 #endif	/* HAVE_WINDOW_SYSTEM */
 
 extern void note_mouse_highlight (struct frame *, int, int);
@@ -3642,8 +3676,6 @@ extern void tty_draw_row_with_mouse_face (struct window *, struct glyph_row *,
 					  int, int, enum draw_glyphs_face);
 extern void display_tty_menu_item (const char *, int, int, int, int, bool);
 #endif
-extern struct glyph *x_y_to_hpos_vpos (struct window *, int, int, int *, int *,
-				       int *, int *, int *);
 /* Flags passed to try_window.  */
 #define TRY_WINDOW_CHECK_MARGINS	(1 << 0)
 #define TRY_WINDOW_IGNORE_FONTS_CHANGE	(1 << 1)
@@ -3747,8 +3779,10 @@ bool parse_color_spec (const char *,
 
 Lisp_Object tty_color_name (struct frame *, int);
 void clear_face_cache (bool);
+#ifdef MSDOS
 unsigned long load_color (struct frame *, struct face *, Lisp_Object,
                           enum lface_attribute_index);
+#endif
 char *choose_face_font (struct frame *, Lisp_Object *, Lisp_Object,
                         int *);
 #ifdef HAVE_WINDOW_SYSTEM

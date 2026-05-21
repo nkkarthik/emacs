@@ -1,6 +1,6 @@
 ;;; savehist.el --- Save minibuffer history  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1997-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2026 Free Software Foundation, Inc.
 
 ;; Author: Hrvoje Nikšić <hrvoje.niksic@avl.com>
 ;; Maintainer: emacs-devel@gnu.org
@@ -235,7 +235,7 @@ Be careful to do it while preserving the current history data."
 	 ;; effectively destroy the user's data at the next save.
 	 (setq savehist-mode nil)
 	 (savehist-uninstall)
-	 (signal (car errvar) (cdr errvar))))
+	 (signal errvar)))
 
       ;; In case we're loading the file late, there was info in the history
       ;; variables that may have been overwritten by the info extracted from

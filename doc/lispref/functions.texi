@@ -1,6 +1,6 @@
 @c -*- mode: texinfo -*-
 @c This is part of the GNU Emacs Lisp Reference Manual.
-@c Copyright (C) 1990--1995, 1998--1999, 2001--2025 Free Software
+@c Copyright (C) 1990--1995, 1998--1999, 2001--2026 Free Software
 @c Foundation, Inc.
 @c See the file elisp.texi for copying conditions.
 @node Functions
@@ -674,6 +674,7 @@ variable; these two uses of a symbol are independent and do not
 conflict.  (This is not the case in some dialects of Lisp, like
 Scheme.)
 
+@cindex internal functions, naming conventions
   By convention, if a function's symbol consists of two names
 separated by @samp{--}, the function is intended for internal use and
 the first part names the file defining the function.  For example, a
@@ -2099,6 +2100,7 @@ Call the function @var{f} for every piece of advice that was added to
 and its properties.
 @end defun
 
+@anchor{advice-eval-interactive-spec}
 @defun advice-eval-interactive-spec spec
 Evaluate the interactive @var{spec} just like an interactive call to a function
 with such a spec would, and then return the corresponding list of arguments
@@ -2111,7 +2113,7 @@ For instance, if you want to make the @kbd{C-x m}
 could say something like this:
 
 @example
-(defun my-compose-mail-advice (orig &rest args)
+(defun my-compose-mail-advice (&rest _)
   "Read From: address interactively."
   (interactive
    (lambda (spec)
@@ -2125,9 +2127,10 @@ could say something like this:
        ;; Put the From header into the OTHER-HEADERS argument.
        (push (cons 'From from) (nth 2 spec))
        spec)))
-  (apply orig args))
+  ;; This body is not used.
+  nil)
 
-(advice-add 'compose-mail :around #'my-compose-mail-advice)
+(advice-add 'compose-mail :interactive-only #'my-compose-mail-advice)
 @end example
 @end defun
 
@@ -2147,8 +2150,8 @@ instead.  This separate set of functions to manipulate pieces of advice applied
 to named functions, offers the following extra features compared to
 @code{add-function}: they know how to deal with macros and autoloaded
 functions, they let @code{describe-function} preserve the original docstring as
-well as document the added advice, and they let you add and remove advice
-before a function is even defined.
+well as document the added advice, and they let you add and remove
+pieces of advice before a function is even defined.
 
   @code{advice-add} can be useful for altering the behavior of existing calls
 to an existing function without having to redefine the whole function.
@@ -2337,8 +2340,18 @@ More specifically, the composition of the two functions behaves like:
 @example
 (lambda (&rest r) (funcall @var{function} (apply @var{oldfun} r)))
 @end example
-@end table
 
+@item :interactive-only
+While the @var{where} option controls how the body of the two functions
+are composed, it does not actually affect the way interactive forms are
+composed.  So, in a sense, this does the opposite of @code{:override}:
+call only the old function as if no advice was applied.  But it still
+affects the interactive form like any other @var{where} value would: The
+interactive form of @var{function}, if any, overrides that of
+@var{oldfun} and if it is a lambda expression, it receives
+@var{function}'s interactive form as argument.
+See @pxref{advice-eval-interactive-spec} for an example.
+@end table
 
 @node Porting Old Advice
 @subsection Adapting code using the old defadvice
@@ -2609,7 +2622,9 @@ as a compiler macro.  The function will accept the argument list
 If present, @var{doc} should be the function's documentation string
 (@pxref{Function Documentation}); @var{declare}, if present, should be
 a @code{declare} form (@pxref{Declare Form}) specifying the function's
-metadata.
+metadata.  In addition to the usual declarations, @var{declare}
+can include @code{(noinline @var{NOINLINE})} when a non-@code{nil}
+@var{NOINLINE} prevents Emacs from inlining the defined function.
 @end defmac
 
 Functions defined via @code{define-inline} have several advantages
@@ -2741,6 +2756,14 @@ as a documentation string.
 Indent calls to this function or macro according to @var{indent-spec}.
 This is typically used for macros, though it works for functions too.
 @xref{Indenting Macros}.
+
+@cindex @code{autoload-macro} (@code{declare} spec)
+@item (autoload-macro @var{value})
+This is used when defining a macro.  If @var{value} is @samp{expand},
+any calls to the macro which follow an autoload comment will first be
+expanded during generation of the autoloads.  This declaration is used
+as an alternative to hard-coding lists of macros to expand in
+@code{loaddefs-generate--make-autoload}.  @xref{Autoload}.
 
 @item (interactive-only @var{value})
 Set the function's @code{interactive-only} property to @var{value}.

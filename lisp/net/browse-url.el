@@ -1,6 +1,6 @@
 ;;; browse-url.el --- pass a URL to a web browser  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1995-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1995-2026 Free Software Foundation, Inc.
 
 ;; Author: Denis Howe <dbh@doc.ic.ac.uk>
 ;; Maintainer: emacs-devel@gnu.org
@@ -310,7 +310,12 @@ Defaults to the value of `browse-url-mozilla-arguments' at the time
   (or (car candidates) default))
 
 (defcustom browse-url-firefox-program
-  (browse-url--find-executable '("icecat" "iceweasel") "firefox")
+  (browse-url--find-executable '("floorp"
+                                 "icecat"
+                                 "iceweasel"
+                                 "librewolf"
+                                 "zen")
+                               "firefox")
   "The name by which to invoke Firefox or a variant of it."
   :type 'string)
 
@@ -1000,7 +1005,10 @@ opposite of the browser kind of `browse-url-browser-function'."
                    browse-url-secondary-browser-function
                    #'browse-url-default-browser
                    #'eww))))
-    (funcall function url arg)))
+    (let ((browse-url-browser-function function)
+          (browse-url-handlers nil)
+          (browse-url-default-handlers nil))
+      (browse-url url arg))))
 
 ;;;###autoload
 (defun browse-url-at-mouse (event)
@@ -1761,7 +1769,8 @@ from `browse-url-elinks-wrapper'."
 
 (defvar-keymap browse-url-button-map
   :doc "The keymap used for `browse-url' buttons."
-  "RET"       #'browse-url-button-open
+  "RET"       (keymap-read-only-bind #'browse-url-button-open)
+  "C-c RET"   #'browse-url-button-open
   "<mouse-2>" #'browse-url-button-open
   "w"         #'browse-url-button-copy)
 
@@ -1787,17 +1796,19 @@ clickable and will use `browse-url' to open the URLs in question."
                                          browse-url-data ,(match-string 0)))))))
 
 ;;;###autoload
-(defun browse-url-button-open (&optional external mouse-event)
+(defun browse-url-button-open (&optional secondary mouse-event)
   "Follow the link under point using `browse-url'.
-If EXTERNAL (the prefix if used interactively), open with the
-external browser instead of the default one."
+If SECONDARY (the prefix if used interactively), open with the
+secondary browser instead of the default one."
   (interactive (list current-prefix-arg last-nonmenu-event))
   (mouse-set-point mouse-event)
   (let ((url (get-text-property (point) 'browse-url-data)))
     (unless url
       (error "No URL under point"))
-    (if external
-        (funcall browse-url-secondary-browser-function url)
+    (let ((browse-url-browser-function
+           (if secondary
+               browse-url-secondary-browser-function
+             browse-url-browser-function)))
       (browse-url url))))
 
 ;;;###autoload
@@ -1805,8 +1816,10 @@ external browser instead of the default one."
   "Open URL using `browse-url'.
 If `current-prefix-arg' is non-nil, use
 `browse-url-secondary-browser-function' instead."
-  (if current-prefix-arg
-      (funcall browse-url-secondary-browser-function url)
+  (let ((browse-url-browser-function
+         (if current-prefix-arg
+             browse-url-secondary-browser-function
+           browse-url-browser-function)))
     (browse-url url)))
 
 (defun browse-url-button-copy ()

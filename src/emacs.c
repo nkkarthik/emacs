@@ -1,6 +1,6 @@
 /* Fully extensible Emacs, running on Unix, intended for GNU.
 
-Copyright (C) 1985-1987, 1993-1995, 1997-1999, 2001-2025 Free Software
+Copyright (C) 1985-1987, 1993-1995, 1997-1999, 2001-2026 Free Software
 Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -1176,7 +1176,7 @@ read_full (int fd, void *buffer, ptrdiff_t size)
   eassert (0 <= fd);
   eassert (buffer != NULL);
   eassert (0 <= size);
-  if (max (PTRDIFF_MAX, MAX_RW_COUNT) < size)
+  if (max (PTRDIFF_MAX, SYS_BUFSIZE_MAX) < size)
     {
       errno = EFBIG;
       return -1;
@@ -2289,6 +2289,13 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
   check_windows_init_file ();
 #endif
 
+#ifdef HAVE_NS
+  /* For early calls to ns_lisp_to_color or Fns_list_colors.
+     Must follow init_callproc which sets data-directory.  */
+  if (!dump_mode)
+    ns_init_colors ();
+#endif
+
   /* Intern the names of all standard functions and variables;
      define standard keys.  */
 
@@ -2358,7 +2365,7 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       syms_of_fringe ();
       syms_of_image ();
 #ifdef HAVE_NTGUI
-# if HAVE_NATIVE_IMAGE_API
+# if WINDOWSNT
       syms_of_w32image ();
 # endif
 #endif	/* HAVE_NTGUI */
@@ -2500,7 +2507,7 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       globals_of_w32font ();
       globals_of_w32fns ();
       globals_of_w32menu ();
-# if HAVE_NATIVE_IMAGE_API
+# if WINDOWSNT
       globals_of_w32image ();
 # endif
 #endif  /* HAVE_NTGUI */
@@ -2947,7 +2954,9 @@ sort_args (int argc, char **argv)
 DEFUN ("kill-emacs", Fkill_emacs, Skill_emacs, 0, 2, "P",
        doc: /* Exit the Emacs job and kill it.
 If ARG is an integer, return ARG as the exit program code.
-If ARG is a string, stuff it as keyboard input.
+If ARG is a string, stuff it and then a newline as keyboard input,
+if Emacs is running interactively on a terminal and the platform
+supports and allows stuffing; this may need special privileges.
 Any other value of ARG, or ARG omitted, means return an
 exit code that indicates successful program termination.
 

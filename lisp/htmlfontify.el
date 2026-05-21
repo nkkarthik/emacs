@@ -1,6 +1,6 @@
 ;;; htmlfontify.el --- htmlize a buffer/source tree with optional hyperlinks -*- lexical-binding: t -*-
 
-;; Copyright (C) 2002-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2002-2026 Free Software Foundation, Inc.
 
 ;; Package: htmlfontify
 ;; Old-Version: 0.21
@@ -1000,6 +1000,12 @@ to be merged by the user - `hfy-flatten-style' should do this."
                    parent
                    (hfy-face-to-style-i
                     (hfy-face-attr-for-class v hfy-display-class))))))
+        ;; The special value `reset' stands for the value of the
+        ;; corresponding attribute (KEY) of the ‘default’ face.
+        (when (eq val 'reset)
+          (setq val (plist-get
+                     (hfy-face-attr-for-class 'default hfy-display-class)
+                     key)))
         (setq this
               (if val (cl-case key
                        (:family         (hfy-family    val))

@@ -1,5 +1,5 @@
 /* ftcrfont.c -- FreeType font driver on cairo.
-   Copyright (C) 2015-2025 Free Software Foundation, Inc.
+   Copyright (C) 2015-2026 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -415,7 +415,6 @@ ftcrfont_text_extents (struct font *font,
 {
   int width, i;
 
-  block_input ();
   width = ftcrfont_glyph_extents (font, code[0], metrics);
   for (i = 1; i < nglyphs; i++)
     {
@@ -435,7 +434,6 @@ ftcrfont_text_extents (struct font *font,
 	}
       width += w;
     }
-  unblock_input ();
 
   if (metrics)
     metrics->width = width;

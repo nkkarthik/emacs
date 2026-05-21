@@ -1,6 +1,6 @@
 /* File IO for GNU Emacs.
 
-Copyright (C) 1985-1988, 1993-2025 Free Software Foundation, Inc.
+Copyright (C) 1985-1988, 1993-2026 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -286,8 +286,7 @@ void
 report_file_errno (char const *string, Lisp_Object name, int errorno)
 {
   Lisp_Object data = get_file_errno_data (string, name, errorno);
-
-  xsignal (Fcar (data), Fcdr (data));
+  xsignal (data, Qnil);
 }
 
 /* Signal a file-access failure that set errno.  STRING describes the
@@ -429,35 +428,10 @@ use the standard functions without calling themselves recursively.  */)
   return result;
 }
 
-DEFUN ("file-name-directory", Ffile_name_directory, Sfile_name_directory,
-       1, 1, 0,
-       doc: /* Return the directory component in file name FILENAME.
-Return nil if FILENAME does not include a directory.
-Otherwise return a directory name.
-Given a Unix syntax file name, returns a string ending in slash.  */)
-  (Lisp_Object filename)
-{
-  Lisp_Object handler;
-
-  CHECK_STRING (filename);
-
-  /* If the file name has special constructs in it,
-     call the corresponding file name handler.  */
-  handler = Ffind_file_name_handler (filename, Qfile_name_directory);
-  if (!NILP (handler))
-    {
-      Lisp_Object handled_name = calln (handler, Qfile_name_directory,
-					filename);
-      return STRINGP (handled_name) ? handled_name : Qnil;
-    }
-
-  return file_name_directory (filename);
-}
-
 /* Return the directory component of FILENAME, or nil if FILENAME does
    not contain a directory component.  */
 
-Lisp_Object
+static Lisp_Object
 file_name_directory (Lisp_Object filename)
 {
   char *beg = SSDATA (filename);
@@ -530,6 +504,31 @@ file_name_directory (Lisp_Object filename)
 #else  /* DOS_NT */
   return make_specified_string (beg, -1, p - beg, STRING_MULTIBYTE (filename));
 #endif	/* DOS_NT */
+}
+
+DEFUN ("file-name-directory", Ffile_name_directory, Sfile_name_directory,
+       1, 1, 0,
+       doc: /* Return the directory component in file name FILENAME.
+Return nil if FILENAME does not include a directory.
+Otherwise return a directory name.
+Given a Unix syntax file name, returns a string ending in slash.  */)
+  (Lisp_Object filename)
+{
+  Lisp_Object handler;
+
+  CHECK_STRING (filename);
+
+  /* If the file name has special constructs in it,
+     call the corresponding file name handler.  */
+  handler = Ffind_file_name_handler (filename, Qfile_name_directory);
+  if (!NILP (handler))
+    {
+      Lisp_Object handled_name = calln (handler, Qfile_name_directory,
+					filename);
+      return STRINGP (handled_name) ? handled_name : Qnil;
+    }
+
+  return file_name_directory (filename);
 }
 
 DEFUN ("file-name-nondirectory", Ffile_name_nondirectory,
@@ -774,6 +773,9 @@ create an empty directory.  The file name should end in SUFFIX.
 Do not expand PREFIX; a non-absolute PREFIX is relative to the Emacs
 working directory.  If TEXT is a string, insert it into the newly
 created file.
+
+On Posix systems, the file/directory is created with access mode bits
+that limit access to the current user.
 
 Signal an error if the file could not be created.
 
@@ -4099,7 +4101,7 @@ by calling `format-decode', which see.  */)
      If too small, insert-file-contents has more syscall overhead.
      If too large, insert-file-contents might take too long respond to a quit.
      1 MiB should be reasonable even for older, slower devices circa 2025.  */
-  enum { INSERT_READ_SIZE_MAX = min (1024 * 1024, MAX_RW_COUNT) };
+  enum { INSERT_READ_SIZE_MAX = min (1024 * 1024, SYS_BUFSIZE_MAX) };
 
   struct timespec mtime;
   emacs_fd fd;
@@ -4520,7 +4522,7 @@ by calling `format-decode', which see.  */)
       /* Find the end position, which is end_offset if given,
 	 the file's end otherwise.  */
 
-      off_t endpos;
+      off_t endpos UNINIT;
       if (!giveup_match_end)
 	{
 	  endpos = end_offset;
@@ -6570,6 +6572,19 @@ before any other event (mouse or keypress) is handled.  */)
 }
 
 
+static FILE *
+file_for_stream (Lisp_Object stream)
+{
+  if (EQ (stream, Qstdin))
+    return stdin;
+  else if (EQ (stream, Qstdout))
+    return stdout;
+  else if (EQ (stream, Qstderr))
+    return stderr;
+  else
+    xsignal2 (Qerror, build_string ("unsupported stream"), stream);
+}
+
 DEFUN ("set-binary-mode", Fset_binary_mode, Sset_binary_mode, 2, 2, 0,
        doc: /* Switch STREAM to binary I/O mode or text I/O mode.
 STREAM can be one of the symbols `stdin', `stdout', or `stderr'.
@@ -6591,18 +6606,9 @@ On Posix systems, this function always returns non-nil, and has no
 effect except for flushing STREAM's data.  */)
   (Lisp_Object stream, Lisp_Object mode)
 {
-  FILE *fp = NULL;
-  int binmode;
-
   CHECK_SYMBOL (stream);
-  if (EQ (stream, Qstdin))
-    fp = stdin;
-  else if (EQ (stream, Qstdout))
-    fp = stdout;
-  else if (EQ (stream, Qstderr))
-    fp = stderr;
-  else
-    xsignal2 (Qerror, build_string ("unsupported stream"), stream);
+  FILE *fp = file_for_stream (stream);
+  int binmode;
 
   binmode = NILP (mode) ? O_TEXT : O_BINARY;
   if (fp != stdin)
@@ -6610,6 +6616,22 @@ effect except for flushing STREAM's data.  */)
 
   return (set_binary_mode (fileno (fp), binmode) == O_BINARY) ? Qt : Qnil;
 }
+
+DEFUN ("file--close-stream", Ffile__close_stream,
+       Sfile__close_stream, 1, 1, 0,
+       doc: /* Close the standard STREAM of the Emacs process.
+STREAM can be one of the symbols `stdin', `stdout', or `stderr'.
+
+This function is primarily intended for testing process machinery within
+Emacs.  */)
+  (Lisp_Object stream)
+{
+  CHECK_SYMBOL (stream);
+  FILE *fp = file_for_stream (stream);
+  fclose (fp);
+  return Qnil;
+}
+
 
 #ifndef DOS_NT
 
@@ -7045,6 +7067,7 @@ This includes interactive calls to `delete-file' and
   defsubr (&Snext_read_file_uses_dialog_p);
 
   defsubr (&Sset_binary_mode);
+  defsubr (&Sfile__close_stream);
 
 #ifndef DOS_NT
   defsubr (&Sfile_system_info);

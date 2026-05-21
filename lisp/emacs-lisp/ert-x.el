@@ -1,6 +1,6 @@
 ;;; ert-x.el --- Staging area for experimental extensions to ERT  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008, 2010-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2008, 2010-2026 Free Software Foundation, Inc.
 
 ;; Author: Lennart Borgman (lennart O borgman A gmail O com)
 ;;         Christian Ohler <ohler@gnu.org>
@@ -415,6 +415,19 @@ The same keyword arguments are supported as in
           (setenv "HOME" (directory-file-name temporary-file-directory)))
         (format "/mock::%s" temporary-file-directory))))
   "Temporary directory for remote file tests.")
+
+(defun ert-play-keys (keys)
+  "Play the key sequence KEYS as if it was user input.
+
+KEYS shall have the same format as in a call to function `kmacro'.
+
+This macro should be expanded within the body of
+`ert-with-buffer-selected' to select a buffer when keys KEYS start
+commands acting on this buffer, or within the body of
+`ert-with-test-buffer' used with `:selected' flag set."
+  (funcall
+    (kmacro keys)))
+
 
 
 ;;;; Obsolete

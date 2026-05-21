@@ -1,6 +1,6 @@
 ;;; erc-scenarios-keep-place-indicator.el --- erc-keep-place-indicator-mode -*- lexical-binding: t -*-
 
-;; Copyright (C) 2023-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2023-2026 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -31,10 +31,12 @@
 ;; away, the indicator is updated if it's earlier in the buffer.
 (ert-deftest erc-scenarios-keep-place-indicator--follow ()
   :tags `(:expensive-test
-          ,@(and (getenv "CI") '(:unstable))
+          ,@(and (getenv "EMACS_EMBA_CI") '(:unstable))
           ,@(and (getenv "ERC_TESTS_GRAPHICAL") '(:erc--graphical)))
 
-  (when (getenv "CI")
+  ;; ERC's tests also run in external CI that exports this variable.
+  ;; Skip on 27 because `erc-scrolltobottom-all' currently requires 28+.
+  (when (or (getenv "CI") (< emacs-major-version 28))
     (ert-skip "Times out intermittently"))
 
   (should-not erc-scrolltobottom-all)
@@ -77,6 +79,7 @@
         (switch-to-buffer (erc-d-t-wait-for 10 (get-buffer "#spam"))) ; lower
         (other-window 1)
         (switch-to-buffer "#spam") ; upper
+        (redisplay)
         (erc-scenarios-common-say "one")
         (funcall expect 10 "Ay, the heads")
 
@@ -92,6 +95,7 @@
         ;; Lower window is still centered at start.
         (other-window 1)
         (switch-to-buffer "#chan")
+        (redisplay)
         (save-excursion
           (goto-char (window-point))
           (should (looking-back (rx "<alice> tester, welcome!")))
@@ -105,8 +109,10 @@
 
         (other-window 1) ; upper still at indicator, switches first
         (switch-to-buffer "#spam")
+        (redisplay)
         (other-window 1)
         (switch-to-buffer "#spam") ; lower follows, speaks to sync
+        (redisplay)
         (erc-scenarios-common-say "two")
         (funcall expect 10 "<bob> Cause they take")
         (goto-char (point-max))
@@ -114,6 +120,7 @@
         ;; Upper switches back first, finds indicator gone.
         (other-window 1)
         (switch-to-buffer "#chan")
+        (redisplay)
         (save-excursion
           (goto-char (window-point))
           (should (looking-back (rx "<bob> tester, welcome!")))

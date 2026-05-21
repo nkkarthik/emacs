@@ -1,6 +1,6 @@
 /* Tree-sitter integration for GNU Emacs.
 
-Copyright (C) 2021-2025 Free Software Foundation, Inc.
+Copyright (C) 2021-2026 Free Software Foundation, Inc.
 
 Maintainer: Yuan Fu <casouri@gmail.com>
 
@@ -35,7 +35,11 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 # include "w32common.h"
 
 /* In alphabetical order.  */
+#if TREE_SITTER_LANGUAGE_VERSION >= 15
+#undef ts_language_abi_version
+#else
 #undef ts_language_version
+#endif
 #undef ts_node_child
 #undef ts_node_child_by_field_name
 #undef ts_node_child_count
@@ -77,11 +81,15 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #undef ts_query_predicates_for_pattern
 #undef ts_query_string_value_for_id
 #undef ts_set_allocator
-#undef ts_tree_cursor_copy
 #undef ts_tree_cursor_current_node
 #undef ts_tree_cursor_delete
 #undef ts_tree_cursor_goto_first_child
 #undef ts_tree_cursor_goto_first_child_for_byte
+#ifdef HAVE_TS_TREE_CURSOR_GOTO_PREVIOUS_SIBLING
+#undef ts_tree_cursor_goto_previous_sibling
+#else
+#undef ts_tree_cursor_copy
+#endif
 #undef ts_tree_cursor_goto_next_sibling
 #undef ts_tree_cursor_goto_parent
 #undef ts_tree_cursor_new
@@ -90,7 +98,11 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #undef ts_tree_get_changed_ranges
 #undef ts_tree_root_node
 
+#if TREE_SITTER_LANGUAGE_VERSION >= 15
+DEF_DLL_FN (uint32_t, ts_language_abi_version, (const TSLanguage *));
+#else
 DEF_DLL_FN (uint32_t, ts_language_version, (const TSLanguage *));
+#endif
 DEF_DLL_FN (TSNode, ts_node_child, (TSNode, uint32_t));
 DEF_DLL_FN (TSNode, ts_node_child_by_field_name,
 	    (TSNode, const char *, uint32_t));
@@ -145,12 +157,16 @@ DEF_DLL_FN (const char *, ts_query_string_value_for_id,
 	    (const TSQuery *, uint32_t, uint32_t *));
 DEF_DLL_FN (void, ts_set_allocator,
 	    (void *(*)(size_t), void *(*)(size_t, size_t), void *(*)(void *, size_t), void (*)(void *)));
-DEF_DLL_FN (TSTreeCursor, ts_tree_cursor_copy, (const TSTreeCursor *));
 DEF_DLL_FN (TSNode, ts_tree_cursor_current_node, (const TSTreeCursor *));
 DEF_DLL_FN (void, ts_tree_cursor_delete, (const TSTreeCursor *));
 DEF_DLL_FN (bool, ts_tree_cursor_goto_first_child, (TSTreeCursor *));
 DEF_DLL_FN (int64_t, ts_tree_cursor_goto_first_child_for_byte, (TSTreeCursor *, uint32_t));
 DEF_DLL_FN (bool, ts_tree_cursor_goto_next_sibling, (TSTreeCursor *));
+#ifdef HAVE_TS_TREE_CURSOR_GOTO_PREVIOUS_SIBLING
+DEF_DLL_FN (bool, ts_tree_cursor_goto_previous_sibling, (TSTreeCursor *));
+#else
+DEF_DLL_FN (TSTreeCursor, ts_tree_cursor_copy, (const TSTreeCursor *));
+#endif
 DEF_DLL_FN (bool, ts_tree_cursor_goto_parent, (TSTreeCursor *));
 DEF_DLL_FN (TSTreeCursor, ts_tree_cursor_new, (TSNode));
 DEF_DLL_FN (void, ts_tree_delete, (TSTree *));
@@ -167,7 +183,11 @@ init_treesit_functions (void)
   if (!library)
     return false;
 
+#if TREE_SITTER_LANGUAGE_VERSION >= 15
+  LOAD_DLL_FN (library, ts_language_abi_version);
+#else
   LOAD_DLL_FN (library, ts_language_version);
+#endif
   LOAD_DLL_FN (library, ts_node_child);
   LOAD_DLL_FN (library, ts_node_child_by_field_name);
   LOAD_DLL_FN (library, ts_node_child_count);
@@ -209,12 +229,16 @@ init_treesit_functions (void)
   LOAD_DLL_FN (library, ts_query_predicates_for_pattern);
   LOAD_DLL_FN (library, ts_query_string_value_for_id);
   LOAD_DLL_FN (library, ts_set_allocator);
-  LOAD_DLL_FN (library, ts_tree_cursor_copy);
   LOAD_DLL_FN (library, ts_tree_cursor_current_node);
   LOAD_DLL_FN (library, ts_tree_cursor_delete);
   LOAD_DLL_FN (library, ts_tree_cursor_goto_first_child);
   LOAD_DLL_FN (library, ts_tree_cursor_goto_first_child_for_byte);
   LOAD_DLL_FN (library, ts_tree_cursor_goto_next_sibling);
+#ifdef HAVE_TS_TREE_CURSOR_GOTO_PREVIOUS_SIBLING
+  LOAD_DLL_FN (library, ts_tree_cursor_goto_previous_sibling);
+#else
+  LOAD_DLL_FN (library, ts_tree_cursor_copy);
+#endif
   LOAD_DLL_FN (library, ts_tree_cursor_goto_parent);
   LOAD_DLL_FN (library, ts_tree_cursor_new);
   LOAD_DLL_FN (library, ts_tree_delete);
@@ -225,7 +249,11 @@ init_treesit_functions (void)
   return true;
 }
 
+#if TREE_SITTER_LANGUAGE_VERSION >= 15
+#define ts_language_abi_version fn_ts_language_abi_version
+#else
 #define ts_language_version fn_ts_language_version
+#endif
 #define ts_node_child fn_ts_node_child
 #define ts_node_child_by_field_name fn_ts_node_child_by_field_name
 #define ts_node_child_count fn_ts_node_child_count
@@ -267,12 +295,16 @@ init_treesit_functions (void)
 #define ts_query_predicates_for_pattern fn_ts_query_predicates_for_pattern
 #define ts_query_string_value_for_id fn_ts_query_string_value_for_id
 #define ts_set_allocator fn_ts_set_allocator
-#define ts_tree_cursor_copy fn_ts_tree_cursor_copy
 #define ts_tree_cursor_current_node fn_ts_tree_cursor_current_node
 #define ts_tree_cursor_delete fn_ts_tree_cursor_delete
 #define ts_tree_cursor_goto_first_child fn_ts_tree_cursor_goto_first_child
 #define ts_tree_cursor_goto_first_child_for_byte fn_ts_tree_cursor_goto_first_child_for_byte
 #define ts_tree_cursor_goto_next_sibling fn_ts_tree_cursor_goto_next_sibling
+#ifdef HAVE_TS_TREE_CURSOR_GOTO_PREVIOUS_SIBLING
+#define ts_tree_cursor_goto_previous_sibling fn_ts_tree_cursor_goto_previous_sibling
+#else
+#define ts_tree_cursor_copy fn_ts_tree_cursor_copy
+#endif
 #define ts_tree_cursor_goto_parent fn_ts_tree_cursor_goto_parent
 #define ts_tree_cursor_new fn_ts_tree_cursor_new
 #define ts_tree_delete fn_ts_tree_delete
@@ -430,7 +462,7 @@ init_treesit_functions (void)
    tracking/non-tracking, it stays that way, regardless of later changes
    to treesit-languages-require-line-column-tracking.
 
-   To make calculating line/column positons fast, we store linecol
+   To make calculating line/column positions fast, we store linecol
    caches for begv, point, and zv in the buffer
    (buf->ts_linecol_cache_xxx); and in the parser object, we store
    linecol cache for visible beg/end of that parser.
@@ -456,10 +488,10 @@ init_treesit_functions (void)
 /*** Constants */
 
 /* A linecol_cache that points to BOB, this is always valid.  */
-const struct ts_linecol TREESIT_BOB_LINECOL = { 1, 1, 0 };
+static struct ts_linecol const TREESIT_BOB_LINECOL = { 1, 1, 0 };
 /* An uninitialized linecol.  */
 const struct ts_linecol TREESIT_EMPTY_LINECOL = { 0, 0, 0 };
-const TSPoint TREESIT_TS_POINT_1_0 = { 1, 0 };
+static TSPoint const TREESIT_TS_POINT_1_0 = { 1, 0 };
 
 
 
@@ -474,17 +506,17 @@ static Lisp_Object Vtreesit_str_dot;
 static Lisp_Object Vtreesit_str_question_mark;
 static Lisp_Object Vtreesit_str_star;
 static Lisp_Object Vtreesit_str_plus;
-static Lisp_Object Vtreesit_str_pound_equal;
-static Lisp_Object Vtreesit_str_pound_match;
-static Lisp_Object Vtreesit_str_pound_pred;
+static Lisp_Object Vtreesit_str_pound_eq_question_mark;
+static Lisp_Object Vtreesit_str_pound_match_question_mark;
+static Lisp_Object Vtreesit_str_pound_pred_question_mark;
 static Lisp_Object Vtreesit_str_open_bracket;
 static Lisp_Object Vtreesit_str_close_bracket;
 static Lisp_Object Vtreesit_str_open_paren;
 static Lisp_Object Vtreesit_str_close_paren;
 static Lisp_Object Vtreesit_str_space;
-static Lisp_Object Vtreesit_str_equal;
-static Lisp_Object Vtreesit_str_match;
-static Lisp_Object Vtreesit_str_pred;
+static Lisp_Object Vtreesit_str_eq_question_mark;
+static Lisp_Object Vtreesit_str_match_question_mark;
+static Lisp_Object Vtreesit_str_pred_question_mark;
 static Lisp_Object Vtreesit_str_empty;
 
 /* This is the limit on recursion levels for some tree-sitter
@@ -547,7 +579,7 @@ treesit_initialize (void)
 
 /*** Debugging */
 
-void treesit_debug_print_parser_list (char *, Lisp_Object);
+void treesit_debug_print_parser_list (char *, Lisp_Object) EXTERNALLY_VISIBLE;
 
 void
 treesit_debug_print_parser_list (char *msg, Lisp_Object parser)
@@ -711,6 +743,22 @@ treesit_load_language_push_for_each_suffix (Lisp_Object lib_base_name,
     }
 }
 
+/* This function is a compatibility shim.  Tree-sitter 0.25 introduced
+   ts_language_abi_version as a replacement for ts_language_version, and
+   tree-sitter 0.26 removed ts_language_version.  Here we use the fact
+   that 0.25 bumped TREE_SITTER_LANGUAGE_VERSION to 15, to use the new
+   function instead of the old one, when Emacs is compiled against
+   tree-sitter version 0.25 or newer.  */
+static uint32_t
+treesit_language_abi_version (const TSLanguage *ts_lang)
+{
+#if TREE_SITTER_LANGUAGE_VERSION >= 15
+  return ts_language_abi_version (ts_lang);
+#else
+  return ts_language_version (ts_lang);
+#endif
+}
+
 /* Load the dynamic library of LANGUAGE_SYMBOL and return the pointer
    to the language definition.
 
@@ -832,7 +880,7 @@ treesit_load_language (Lisp_Object language_symbol,
 	build_string ("%s's ABI version is %d, but supported versions are %d-%d");
       Lisp_Object formatted_msg =
 	CALLN (Fformat_message, fmt, loaded_lib,
-	       make_fixnum (ts_language_version (lang)),
+	       make_fixnum (treesit_language_abi_version (lang)),
 	       make_fixnum (TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION),
 	       make_fixnum (TREE_SITTER_LANGUAGE_VERSION));
       *signal_symbol = Qtreesit_load_language_error;
@@ -914,7 +962,7 @@ Return nil if a grammar library for LANGUAGE is not available.  */)
       TSLanguage *ts_language = lang.lang;
       if (ts_language == NULL)
 	return Qnil;
-      uint32_t version =  ts_language_version (ts_language);
+      uint32_t version =  treesit_language_abi_version (ts_language);
       return make_fixnum((ptrdiff_t) version);
     }
 }
@@ -948,7 +996,7 @@ loaded or the file name couldn't be determined, return nil.  */)
 
 #define TREESIT_DEBUG_LINECOL false
 
-void treesit_debug_print_linecol (struct ts_linecol);
+void treesit_debug_print_linecol (struct ts_linecol) EXTERNALLY_VISIBLE;
 
 void
 treesit_debug_print_linecol (struct ts_linecol linecol)
@@ -956,8 +1004,9 @@ treesit_debug_print_linecol (struct ts_linecol linecol)
   printf ("{ line=%td col=%td bytepos=%td }\n", linecol.line, linecol.col, linecol.bytepos);
 }
 
-/* Returns true if BUF tracks linecol.  */
-bool treesit_buf_tracks_linecol_p (struct buffer *buf)
+/* Return true if BUF tracks linecol.  */
+static bool
+treesit_buf_tracks_linecol_p (struct buffer *buf)
 {
   return BUF_TS_LINECOL_BEGV (buf).bytepos != 0;
 }
@@ -1039,7 +1088,7 @@ treesit_linecol_of_pos (ptrdiff_t target_bytepos,
 
   /* When we finished searching for newlines between CACHE and
      TARGET_POS, BYTE_POS_2 is at TARGET_POS, and BYTE_POS_1 is at the
-     previous newline.  If TARGET_POS happends to be on a newline,
+     previous newline.  If TARGET_POS happens to be on a newline,
      BYTE_POS_1 will be on that position.  BYTE_POS_1 is used for
      calculating the column.  (If CACHE and TARGET_POS are in the same
      line, BYTE_POS_1 is unset and we don't use it.)  */
@@ -1212,7 +1261,7 @@ treesit_tree_edit_1 (TSTree *tree, ptrdiff_t start_byte,
 }
 
 /* Given a position at POS_LINECOL, and the linecol of a buffer change
-   (START_LINECOL, OLD_END_LINECOL, and NEW_END_LINCOL), compute the new
+   (START_LINECOL, OLD_END_LINECOL, and NEW_END_LINECOL), compute the new
    linecol for that position, then scan from this now valid linecol to
    TARGET_BYTEPOS and return the linecol at TARGET_BYTEPOS.
 
@@ -1243,14 +1292,16 @@ compute_new_linecol_by_change (struct ts_linecol pos_linecol,
     {
       new_linecol = pos_linecol;
     }
-  /* 2. When old_end (oe) is before pos, the differnce between pos and
+  /* 2. When old_end (oe) is before pos, the difference between pos and
      pos' is the difference between old_end and new_end (ne).
 
-     |     |   |           |     |   |
-     s     oe  pos         s     oe  pos
-		      OR
-     |  |   |              |         |
-     s  ne  pos'           s         ne  pos'
+     Delete:                   Insert:
+
+     |     |   |               |     |   |
+     s     oe  pos             s     oe  pos
+
+     |  |   |                  |         |   |
+     s  ne  pos'               s         ne  pos'
 
    */
   else if (old_end_linecol.bytepos <= pos_linecol.bytepos)
@@ -1476,7 +1527,7 @@ treesit_linecol_maybe (ptrdiff_t pos, ptrdiff_t pos_byte,
    does not parse the buffer and only updates the tree, so it should be
    very fast.
 
-   This is a wrapper over treesit_record_change that does a bit more
+   This is a wrapper over treesit_record_change_1 that does a bit more
    boilerplate work: it (optionally) calculates linecol for new_end,
    pass all the positions into treesit_record_change_1 which does the
    real work, and finally (optionally) sets buffer's linecol cache to
@@ -1958,7 +2009,7 @@ treesit_read_buffer (void *parser, uint32_t byte_index,
 
 /* Wrap the parser in a Lisp_Object to be used in the Lisp
    machine.  */
-Lisp_Object
+static Lisp_Object
 make_treesit_parser (Lisp_Object buffer, TSParser *parser,
 		     TSTree *tree, Lisp_Object language_symbol,
 		     Lisp_Object tag, bool tracks_linecol)
@@ -2011,7 +2062,7 @@ make_treesit_parser (Lisp_Object buffer, TSParser *parser,
 }
 
 /* Wrap the node in a Lisp_Object to be used in the Lisp machine.  */
-Lisp_Object
+static Lisp_Object
 make_treesit_node (Lisp_Object parser, TSNode node)
 {
   struct Lisp_TS_Node *lisp_node;
@@ -2164,7 +2215,7 @@ treesit_ensure_query_compiled (Lisp_Object query, Lisp_Object *signal_symbol,
   return treesit_query;
 }
 
-/* Bsically treesit_ensure_query_compiled but can signal.  */
+/* Basically treesit_ensure_query_compiled but can signal.  */
 static
 void treesit_ensure_query_compiled_signal (Lisp_Object lisp_query)
 {
@@ -2178,6 +2229,20 @@ void treesit_ensure_query_compiled_signal (Lisp_Object lisp_query)
     xsignal (signal_symbol, signal_data);
 }
 
+/* Call PRED with NODE, signal an error if PRED caused PARSER to
+   re-parse.  Return the funcall result.  If PRED just changes buffer
+   but didn't trigger a reparser, we let it go, to be as out-of-the-way
+   as possible.  */
+static Lisp_Object treesit_pred_with_guard
+(Lisp_Object pred, Lisp_Object node, Lisp_Object parser)
+{
+  ptrdiff_t pre_timestamp = XTS_PARSER (parser)->timestamp;
+  Lisp_Object res = calln (pred, node);
+  if (XTS_PARSER (parser)->timestamp != pre_timestamp)
+    xsignal (Qtreesit_buffer_changed, list1 (pred));
+
+  return res;
+}
 
 /* Lisp definitions.  */
 
@@ -2226,6 +2291,21 @@ DEFUN ("treesit-query-p",
     return Qnil;
 }
 
+DEFUN ("treesit-query-eagerly-compiled-p",
+       Ftreesit_query_eagerly_compiled_p, Streesit_query_eagerly_compiled_p, 1, 1, 0,
+       doc: /* Return non-nil if QUERY is eagerly compiled.
+
+QUERY has to be a compiled query.  Compiled queries are lazily compiled
+by default, meaning they are not actually compiled until first used.
+Return non-nil if QUERY is actually compiled (either by passing the
+EAGER flag to `treesit-query-compile' or due to the fact that it was
+already used).  */)
+  (Lisp_Object query)
+{
+  CHECK_TS_COMPILED_QUERY (query);
+  return XTS_COMPILED_QUERY (query)->query == NULL ? Qnil : Qt;
+}
+
 DEFUN ("treesit-query-language",
        Ftreesit_query_language, Streesit_query_language, 1, 1, 0,
        doc: /* Return the language of QUERY.
@@ -2234,6 +2314,16 @@ QUERY has to be a compiled query.  */)
 {
   CHECK_TS_COMPILED_QUERY (query);
   return XTS_COMPILED_QUERY (query)->language;
+}
+
+DEFUN ("treesit-query-source",
+       Ftreesit_query_source, Streesit_query_source, 1, 1, 0,
+       doc: /* Return the (string or sexp) source of QUERY.
+QUERY has to be a compiled query.  */)
+  (Lisp_Object query)
+{
+  CHECK_TS_COMPILED_QUERY (query);
+  return XTS_COMPILED_QUERY (query)->source;
 }
 
 DEFUN ("treesit-node-parser",
@@ -2290,7 +2380,7 @@ an indirect buffer.  */)
     buf = buf->base_buffer;
 
   if (EQ (tag, Qt))
-    xsignal2(Qwrong_type_argument, list2(Qnot, Qt), Qt);
+    wrong_type_argument (list2 (Qnot, Qt), Qt);
 
   treesit_check_buffer_size (buf);
 
@@ -2817,16 +2907,6 @@ or no affected ranges, return nil.  */)
 
 /*** Node API  */
 
-/* Check that OBJ is a positive integer and signal an error if
-   otherwise.  */
-static void
-treesit_check_positive_integer (Lisp_Object obj)
-{
-  CHECK_INTEGER (obj);
-  if (XFIXNUM (obj) < 0)
-    xsignal1 (Qargs_out_of_range, obj);
-}
-
 static void
 treesit_check_node (Lisp_Object obj)
 {
@@ -2842,13 +2922,12 @@ treesit_check_node (Lisp_Object obj)
     xsignal1 (Qtreesit_node_buffer_killed, obj);
 }
 
-/* Check that OBJ is a positive integer and it is within the visible
-   portion of BUF.  */
+/* Check that OBJ is a positive integer/marker and it is within the
+   visible portion of BUF.  */
 static void
 treesit_check_position (Lisp_Object obj, struct buffer *buf)
 {
-  treesit_check_positive_integer (obj);
-  ptrdiff_t pos = XFIXNUM (obj);
+  ptrdiff_t pos = fix_position (obj);
   if (pos < BUF_BEGV (buf) || pos > BUF_ZV (buf))
     xsignal1 (Qargs_out_of_range, obj);
 }
@@ -3276,7 +3355,7 @@ Note that this function returns an immediate child, not the smallest
   treesit_check_position (pos, buf);
   treesit_initialize ();
 
-  ptrdiff_t byte_pos = buf_charpos_to_bytepos (buf, XFIXNUM (pos));
+  ptrdiff_t byte_pos = buf_charpos_to_bytepos (buf, fix_position (pos));
   TSNode treesit_node = XTS_NODE (node)->node;
 
   TSTreeCursor cursor = ts_tree_cursor_new (treesit_node);
@@ -3314,8 +3393,8 @@ If NODE is nil, return nil.  */)
 
   treesit_initialize ();
 
-  ptrdiff_t byte_beg = buf_charpos_to_bytepos (buf, XFIXNUM (beg));
-  ptrdiff_t byte_end = buf_charpos_to_bytepos (buf, XFIXNUM (end));
+  ptrdiff_t byte_beg = buf_charpos_to_bytepos (buf, fix_position (beg));
+  ptrdiff_t byte_end = buf_charpos_to_bytepos (buf, fix_position (end));
   TSNode treesit_node = XTS_NODE (node)->node;
   TSNode child;
   if (NILP (named))
@@ -3439,12 +3518,12 @@ See Info node `(elisp)Pattern Matching' for detailed explanation.  */)
     return Vtreesit_str_star;
   if (BASE_EQ (pattern, QCplus))
     return Vtreesit_str_plus;
-  if (BASE_EQ (pattern, QCequal))
-    return Vtreesit_str_pound_equal;
-  if (BASE_EQ (pattern, QCmatch))
-    return Vtreesit_str_pound_match;
-  if (BASE_EQ (pattern, QCpred))
-    return Vtreesit_str_pound_pred;
+  if (BASE_EQ (pattern, QCequal) || BASE_EQ (pattern, QCeq_q))
+    return Vtreesit_str_pound_eq_question_mark;
+  if (BASE_EQ (pattern, QCmatch) || BASE_EQ (pattern, QCmatch_q))
+    return Vtreesit_str_pound_match_question_mark;
+  if (BASE_EQ (pattern, QCpred) || BASE_EQ (pattern, QCpred_q))
+    return Vtreesit_str_pound_pred_question_mark;
   Lisp_Object opening_delimeter
     = VECTORP (pattern)
       ? Vtreesit_str_open_bracket : Vtreesit_str_open_paren;
@@ -3475,7 +3554,9 @@ A PATTERN in QUERY can be
     :*
     :+
     :equal
+    :eq?
     :match
+    :match?
     (TYPE PATTERN...)
     [PATTERN...]
     FIELD-NAME:
@@ -3638,7 +3719,7 @@ treesit_predicate_equal (Lisp_Object args, struct capture_range captures,
   return !NILP (Fstring_equal (text1, text2));
 }
 
-/* Handles predicate (#match "regexp" @node).  Return true if "regexp"
+/* Handles predicate (#match? "regexp" @node).  Return true if "regexp"
    matches the text spanned by @node; return false otherwise.
    Matching is case-sensitive.  If everything goes fine, don't touch
    SIGNAL_DATA; if error occurs, set it to a suitable signal data.  */
@@ -3648,26 +3729,25 @@ treesit_predicate_match (Lisp_Object args, struct capture_range captures,
 {
   if (list_length (args) != 2)
     {
-      *signal_data = list2 (build_string ("Predicate `match' requires two "
+      *signal_data = list2 (build_string ("Predicate `match?' requires two "
 					  "arguments but got"),
 			    Flength (args));
       return false;
     }
-  Lisp_Object regexp = XCAR (args);
-  Lisp_Object capture_name = XCAR (XCDR (args));
+  Lisp_Object arg1 = XCAR (args);
+  Lisp_Object arg2 = XCAR (XCDR (args));
+  Lisp_Object regexp = SYMBOLP (arg2) ? arg1 : arg2;
+  Lisp_Object capture_name = SYMBOLP (arg2) ? arg2 : arg1;
 
-  /* It's probably common to get the argument order backwards.  Catch
-     this mistake early and show helpful explanation, because Emacs
-     loves you.  (We put the regexp first because that's what
-     string-match does.)  */
-  if (!STRINGP (regexp))
-    xsignal1 (Qtreesit_query_error,
-	      build_string ("The first argument to `match' should "
-		            "be a regexp string, not a capture name"));
-  if (!SYMBOLP (capture_name))
-    xsignal1 (Qtreesit_query_error,
-	      build_string ("The second argument to `match' should "
-		            "be a capture name, not a string"));
+  if (!STRINGP (regexp) || !SYMBOLP (capture_name))
+    {
+      *signal_data = list2 (build_string ("Predicate `match?' takes a regexp "
+	                                  "and a node capture (order doesn't "
+					  "matter), but got"),
+			    Flength (args));
+      return false;
+    }
+
 
   Lisp_Object node = Qnil;
   if (!treesit_predicate_capture_name_to_node (capture_name, captures, &node,
@@ -3709,7 +3789,7 @@ treesit_predicate_match (Lisp_Object args, struct capture_range captures,
    if error occurs, set it to a suitable signal data.  */
 static bool
 treesit_predicate_pred (Lisp_Object args, struct capture_range captures,
-			Lisp_Object *signal_data)
+			Lisp_Object *signal_data, Lisp_Object parser)
 {
   if (list_length (args) < 2)
     {
@@ -3733,7 +3813,14 @@ treesit_predicate_pred (Lisp_Object args, struct capture_range captures,
   }
   nodes = Fnreverse (nodes);
 
-  return !NILP (CALLN (Fapply, fn, nodes));
+  ptrdiff_t ts = XTS_PARSER (parser)->timestamp;
+  Lisp_Object val = CALLN (Fapply, fn, nodes);
+  if (XTS_PARSER (parser)->timestamp != ts)
+    {
+      *signal_data = list1 (fn);
+      return false;
+    }
+  return !NILP (val);
 }
 
 /* If all predicates in PREDICATES pass, return true; otherwise
@@ -3741,7 +3828,7 @@ treesit_predicate_pred (Lisp_Object args, struct capture_range captures,
    error occurs, set it to a suitable signal data.  */
 static bool
 treesit_eval_predicates (struct capture_range captures, Lisp_Object predicates,
-			 Lisp_Object *signal_data)
+			 Lisp_Object *signal_data, Lisp_Object parser)
 {
   bool pass = true;
   /* Evaluate each predicates.  */
@@ -3751,12 +3838,12 @@ treesit_eval_predicates (struct capture_range captures, Lisp_Object predicates,
       Lisp_Object predicate = XCAR (tail);
       Lisp_Object fn = XCAR (predicate);
       Lisp_Object args = XCDR (predicate);
-      if (!NILP (Fstring_equal (fn, Vtreesit_str_equal)))
+      if (!NILP (Fstring_equal (fn, Vtreesit_str_eq_question_mark)))
 	pass &= treesit_predicate_equal (args, captures, signal_data);
-      else if (!NILP (Fstring_equal (fn, Vtreesit_str_match)))
+      else if (!NILP (Fstring_equal (fn, Vtreesit_str_match_question_mark)))
 	pass &= treesit_predicate_match (args, captures, signal_data);
-      else if (!NILP (Fstring_equal (fn, Vtreesit_str_pred)))
-	pass &= treesit_predicate_pred (args, captures, signal_data);
+      else if (!NILP (Fstring_equal (fn, Vtreesit_str_pred_question_mark)))
+	pass &= treesit_predicate_pred (args, captures, signal_data, parser);
       else
 	{
 	  *signal_data = list3 (build_string ("Invalid predicate"),
@@ -3839,9 +3926,9 @@ static Lisp_Object treesit_resolve_node (Lisp_Object obj)
       return Ftreesit_parser_root_node (parser);
     }
   else
-    xsignal2 (Qwrong_type_argument,
-	      list4 (Qor, Qtreesit_node_p, Qtreesit_parser_p, Qsymbolp),
-	      obj);
+    wrong_type_argument (list4 (Qor, Qtreesit_node_p,
+				Qtreesit_parser_p, Qsymbolp),
+			 obj);
 }
 
 /* Create and initialize QUERY.  When success, initialize TS_QUERY,
@@ -3899,6 +3986,22 @@ treesit_initialize_query (Lisp_Object query, const TSLanguage *lang,
 	  *need_free = true;
 	  return true;
 	}
+    }
+}
+
+/* Go over a list from START to END (until the element eq to END),
+   replace (capture-name . node) with just node.  */
+static void query_capture_remove_capture_name (Lisp_Object start,
+					       Lisp_Object end)
+{
+  Lisp_Object tail = start;
+  FOR_EACH_TAIL (tail)
+    {
+      Lisp_Object cell = CAR (tail);
+      CHECK_CONS (cell);
+      XSETCAR (tail, CDR (cell));
+
+      if (EQ (CDR (tail), end)) return;
     }
 }
 
@@ -3988,8 +4091,13 @@ the query.  */)
     {
       ptrdiff_t visible_beg
 	= XTS_PARSER (XTS_NODE (lisp_node)->parser)->visible_beg;
-      ptrdiff_t beg_byte = CHAR_TO_BYTE (XFIXNUM (beg));
-      ptrdiff_t end_byte = CHAR_TO_BYTE (XFIXNUM (end));
+      ptrdiff_t beg_byte = CHAR_TO_BYTE (fix_position (beg));
+      ptrdiff_t end_byte = CHAR_TO_BYTE (fix_position (end));
+      /* In ts_query_cursor_set_byte_range, if end_byte = 0, it's set to
+         UINT32_MAX for some reason.  But range (1, 1) shouldn't capture
+         anything.  So in this case just return Qnil.  (bug#80798)  */
+      if (beg_byte == visible_beg && end_byte == visible_beg) return Qnil;
+
       /* We never let tree-sitter run on buffers too large, so these
 	 assertion should never hit.  */
       eassert (beg_byte - visible_beg <= UINT32_MAX);
@@ -4047,18 +4155,12 @@ the query.  */)
 	  TSQueryCapture capture = captures[idx];
 	  Lisp_Object captured_node = make_treesit_node (lisp_parser,
 							 capture.node);
-
-	  Lisp_Object cap;
-	  if (NILP (node_only))
-	    {
-	      const char *capture_name
-		= ts_query_capture_name_for_id (treesit_query, capture.index,
-						&capture_name_len);
-	      cap = Fcons (intern_c_string_1 (capture_name, capture_name_len),
-			   captured_node);
-	    }
-	  else
-	    cap = captured_node;
+	  const char *capture_name
+	    = ts_query_capture_name_for_id (treesit_query, capture.index,
+					    &capture_name_len);
+	  Lisp_Object cap
+	    = Fcons (intern_c_string_1 (capture_name, capture_name_len),
+		     captured_node);
 
 	  if (NILP (grouped))
 	    result = Fcons (cap, result); /* Mode 1. */
@@ -4086,17 +4188,29 @@ the query.  */)
 	}
       bool match
 	= treesit_eval_predicates (captures_range, predicates,
-				   &predicate_signal_data);
+				   &predicate_signal_data, lisp_parser);
 
       if (!NILP (predicate_signal_data))
 	break;
 
-      /* Mode 1: Predicates didn't pass, roll back.  */
-      if (!match && NILP (grouped))
-	result = prev_result;
-      /* Mode 2: Predicates pass, add this match group.  */
+      /* Mode 1: Roll back if predicate didn't pass, don't roll back if
+         predicate passed.  */
+      if (NILP (grouped))
+	{
+	  if (!match)
+	    result = prev_result;
+	  else if (!NILP (node_only))
+	    query_capture_remove_capture_name (result, prev_result);
+	}
+      /* Mode 2: Add this match group if predicate pass, don't add this
+         group if predicate didn't pass.  */
       if (match && !NILP (grouped))
-	result = Fcons (Fnreverse (match_group), result);
+	{
+	  match_group = Fnreverse (match_group);
+	  if (!NILP (node_only))
+	    query_capture_remove_capture_name (match_group, Qnil);
+	  result = Fcons (match_group, result);
+	}
     }
 
   /* Final clean up.  */
@@ -4218,6 +4332,19 @@ treesit_traverse_sibling_helper (TSTreeCursor *cursor,
       return false;
     }
   else /* Backward.  */
+#ifdef HAVE_TS_TREE_CURSOR_GOTO_PREVIOUS_SIBLING
+    {
+      if (!named)
+	return ts_tree_cursor_goto_previous_sibling (cursor);
+      /* Else named...  */
+      while (ts_tree_cursor_goto_previous_sibling (cursor))
+	{
+	  if (ts_node_is_named (ts_tree_cursor_current_node (cursor)))
+	    return true;
+	}
+      return false;
+    }
+#else
     {
       /* Go to first child and go through each sibling, until we find
 	 the one just before the starting node.  */
@@ -4265,6 +4392,7 @@ treesit_traverse_sibling_helper (TSTreeCursor *cursor,
       ts_tree_cursor_delete (&probe);
       return false;
     }
+#endif
 }
 
 /* Move CURSOR to the first/last child.  FORWARD controls the
@@ -4461,7 +4589,8 @@ treesit_traverse_validate_predicate (Lisp_Object pred,
    This function assumes PRED is in one of its valid forms.  If NAMED
    is true, also check that the node is named.
 
-   This function may signal if the predicate function signals.  */
+   This function may signal if the predicate function signals or changes
+   the buffer.  */
 static bool
 treesit_traverse_match_predicate (TSTreeCursor *cursor, Lisp_Object pred,
 				  Lisp_Object parser, bool named)
@@ -4473,7 +4602,7 @@ treesit_traverse_match_predicate (TSTreeCursor *cursor, Lisp_Object pred,
   if (STRINGP (pred))
     {
       const char *type = ts_node_type (node);
-      /* ts_node_type returning NULL means something unexpected happend
+      /* ts_node_type returning NULL means something unexpected happened
          in tree-sitter, in this case the only reasonable thing is to
          not match anything.  */
       if (type == NULL) return false;
@@ -4483,7 +4612,8 @@ treesit_traverse_match_predicate (TSTreeCursor *cursor, Lisp_Object pred,
 	   && !(SYMBOLP (pred) && !NILP (Fget (pred, Qtreesit_thing_symbol))))
     {
       Lisp_Object lisp_node = make_treesit_node (parser, node);
-      return !NILP (calln (pred, lisp_node));
+      Lisp_Object res = treesit_pred_with_guard (pred, lisp_node, parser);
+      return !NILP (res);
     }
   else if (SYMBOLP (pred) && BASE_EQ (pred, Qnamed))
     return ts_node_is_named (node);
@@ -4530,8 +4660,8 @@ treesit_traverse_match_predicate (TSTreeCursor *cursor, Lisp_Object pred,
 	  /* A bit of code duplication here, but should be fine.  */
 	  const char *type = ts_node_type (node);
 	  /* ts_node_type returning NULL means something unexpected
-             happend in tree-sitter, in this case the only reasonable
-             thing is to not match anything  */
+             happened in tree-sitter.  In this case the only reasonable
+             thing is to not match anything.  */
 	  if (type == NULL) return false;
 	  if (!(fast_c_string_match (car, type, strlen (type)) >= 0))
 	    return false;
@@ -4792,7 +4922,8 @@ always traverse leaf nodes first, then upwards.  */)
    Note that the top-level children list is reversed, because
    reasons.
 
-   This function may signal if the predicate function signals.  */
+   This function may signal if the predicate function signals or changes
+   buffer.  */
 static void
 treesit_build_sparse_tree (TSTreeCursor *cursor, Lisp_Object parent,
 			   Lisp_Object pred, Lisp_Object process_fn,
@@ -4806,7 +4937,7 @@ treesit_build_sparse_tree (TSTreeCursor *cursor, Lisp_Object parent,
       TSNode node = ts_tree_cursor_current_node (cursor);
       Lisp_Object lisp_node = make_treesit_node (parser, node);
       if (!NILP (process_fn))
-	lisp_node = calln (process_fn, lisp_node);
+	lisp_node = treesit_pred_with_guard (process_fn, lisp_node, parser);
 
       Lisp_Object this = Fcons (lisp_node, Qnil);
       Fsetcdr (parent, Fcons (this, Fcdr (parent)));
@@ -5056,9 +5187,9 @@ return the line and column in the form of
 This is used for internal testing and debugging ONLY.  */)
   (Lisp_Object pos)
 {
-  CHECK_NUMBER (pos);
+  treesit_check_position (pos, current_buffer);
   struct ts_linecol pos_linecol
-    = treesit_linecol_of_pos (CHAR_TO_BYTE (XFIXNUM (pos)),
+    = treesit_linecol_of_pos (CHAR_TO_BYTE (fix_position (pos)),
 			      BUF_TS_LINECOL_POINT (current_buffer));
   return Fcons (make_fixnum (pos_linecol.line), make_fixnum (pos_linecol.col));
 }
@@ -5143,8 +5274,11 @@ syms_of_treesit (void)
   DEFSYM (QCstar, ":*");
   DEFSYM (QCplus, ":+");
   DEFSYM (QCequal, ":equal");
+  DEFSYM (QCeq_q, ":eq?");
   DEFSYM (QCmatch, ":match");
+  DEFSYM (QCmatch_q, ":match?");
   DEFSYM (QCpred, ":pred");
+  DEFSYM (QCpred_q, ":pred?");
   DEFSYM (QCline, ":line");
   DEFSYM (QCcol, ":col");
   DEFSYM (QCpos, ":pos");
@@ -5165,6 +5299,8 @@ syms_of_treesit (void)
 	  "treesit-load-language-error");
   DEFSYM (Qtreesit_node_outdated,
 	  "treesit-node-outdated");
+  DEFSYM (Qtreesit_buffer_changed,
+	  "treesit-buffer_changed");
   DEFSYM (Qtreesit_node_buffer_killed,
 	  "treesit-node-buffer-killed");
   DEFSYM (Quser_emacs_directory,
@@ -5178,6 +5314,8 @@ syms_of_treesit (void)
 
   DEFSYM (Qor, "or");
   DEFSYM (Qand, "and");
+
+  DEFSYM (Qhaskell, "haskell");
 
 #ifdef WINDOWSNT
   DEFSYM (Qtree_sitter, "tree-sitter");
@@ -5199,6 +5337,9 @@ syms_of_treesit (void)
 		Qtreesit_error);
   define_error (Qtreesit_node_outdated,
 		"This node is outdated, please retrieve a new one",
+		Qtreesit_error);
+  define_error (Qtreesit_buffer_changed,
+		"Buffer content changed, please don't edit buffer in predicate function, etc",
 		Qtreesit_error);
   define_error (Qtreesit_node_buffer_killed,
 		"The buffer associated with this node is killed",
@@ -5237,7 +5378,10 @@ The value should be a list of directories.
 When trying to load a tree-sitter language definition,
 Emacs first looks in the directories mentioned in this variable,
 then in the `tree-sitter' subdirectory of `user-emacs-directory', and
-then in the system default locations for dynamic libraries, in that order.  */);
+then in the system default locations for dynamic libraries, in that order.
+The first writeable directory in the list is special: it's used as the
+default directory when automatically installing the language grammar
+using `treesit-ensure-installed'.  */);
   Vtreesit_extra_load_path = Qnil;
 
   DEFVAR_LISP ("treesit-thing-settings",
@@ -5297,7 +5441,17 @@ Most tree-sitter language grammars don't require line and column
 tracking to work, but some languages do.  When creating a parser, if the
 language is in this list, Emacs enables line-column tracking for the
 buffer.  */);
-  Vtreesit_languages_require_line_column_tracking = Qnil;
+  Vtreesit_languages_require_line_column_tracking = list1 (Qhaskell);
+
+  DEFVAR_LISP ("treesit-major-mode-remap-alist",
+	       Vtreesit_major_mode_remap_alist,
+	       doc:
+	       /* Alist mapping file-specified modes to ts-modes.
+
+The value should be an alist of (MODE . TS-MODE).
+This alist is used to modify the value of `major-mode-remap-alist'
+depending on customization of `treesit-enabled-modes'.  */);
+  Vtreesit_major_mode_remap_alist = Qnil;
 
   staticpro (&Vtreesit_str_libtree_sitter);
   Vtreesit_str_libtree_sitter = build_string ("libtree-sitter-");
@@ -5315,12 +5469,12 @@ buffer.  */);
   Vtreesit_str_star = build_string ("*");
   staticpro (&Vtreesit_str_plus);
   Vtreesit_str_plus = build_string ("+");
-  staticpro (&Vtreesit_str_pound_equal);
-  Vtreesit_str_pound_equal = build_string ("#equal");
-  staticpro (&Vtreesit_str_pound_match);
-  Vtreesit_str_pound_match = build_string ("#match");
-  staticpro (&Vtreesit_str_pound_pred);
-  Vtreesit_str_pound_pred = build_string ("#pred");
+  staticpro (&Vtreesit_str_pound_eq_question_mark);
+  Vtreesit_str_pound_eq_question_mark = build_string ("#eq?");
+  staticpro (&Vtreesit_str_pound_match_question_mark);
+  Vtreesit_str_pound_match_question_mark = build_string ("#match?");
+  staticpro (&Vtreesit_str_pound_pred_question_mark);
+  Vtreesit_str_pound_pred_question_mark = build_string ("#pred?");
   staticpro (&Vtreesit_str_open_bracket);
   Vtreesit_str_open_bracket = build_string ("[");
   staticpro (&Vtreesit_str_close_bracket);
@@ -5331,12 +5485,12 @@ buffer.  */);
   Vtreesit_str_close_paren = build_string (")");
   staticpro (&Vtreesit_str_space);
   Vtreesit_str_space = build_string (" ");
-  staticpro (&Vtreesit_str_equal);
-  Vtreesit_str_equal = build_string ("equal");
-  staticpro (&Vtreesit_str_match);
-  Vtreesit_str_match = build_string ("match");
-  staticpro (&Vtreesit_str_pred);
-  Vtreesit_str_pred = build_string ("pred");
+  staticpro (&Vtreesit_str_eq_question_mark);
+  Vtreesit_str_eq_question_mark = build_string ("eq?");
+  staticpro (&Vtreesit_str_match_question_mark);
+  Vtreesit_str_match_question_mark = build_string ("match?");
+  staticpro (&Vtreesit_str_pred_question_mark);
+  Vtreesit_str_pred_question_mark = build_string ("pred?");
   staticpro (&Vtreesit_str_empty);
   Vtreesit_str_empty = build_string ("");
 
@@ -5352,7 +5506,9 @@ buffer.  */);
   defsubr (&Streesit_node_p);
   defsubr (&Streesit_compiled_query_p);
   defsubr (&Streesit_query_p);
+  defsubr (&Streesit_query_eagerly_compiled_p);
   defsubr (&Streesit_query_language);
+  defsubr (&Streesit_query_source);
 
   defsubr (&Streesit_node_parser);
 

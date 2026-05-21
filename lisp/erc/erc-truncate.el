@@ -1,6 +1,6 @@
 ;;; erc-truncate.el --- Functions for truncating ERC buffers  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2003-2004, 2006-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2004, 2006-2026 Free Software Foundation, Inc.
 
 ;; Author: Andreas Fuchs <asf@void.at>
 ;; Maintainer: Amin Bandali <bandali@gnu.org>, F. Jason Park <jp@neverwas.me>
@@ -98,9 +98,11 @@ for other purposes should customize either `erc-enable-logging' or
              (erc-log--check-legacy-implicit-enabling-by-truncate))
     ;; Emit a real Emacs warning because the message may be
     ;; truncated away before it can be read if merely inserted.
-    (erc-button--display-error-notice-with-keys-and-warn
-     "The `truncate' module no longer enables logging implicitly."
-     " See the doc string for `erc-truncate-mode' for details.")))
+    (let ((erc--warn-once-before-connect-function
+           #'erc-button--display-error-notice-with-keys-and-warn))
+      (erc--warn-once-before-connect 'erc-truncate-mode
+        "The `truncate' module no longer enables logging implicitly."
+        " See the doc string for `erc-truncate-mode' for details."))))
 
 ;;;###autoload
 (defun erc-truncate-buffer-to-size (size &optional buffer)

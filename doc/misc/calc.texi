@@ -4,6 +4,7 @@
 @c smallbook
 @c [title]
 @settitle GNU Emacs Calc Manual
+@documentlanguage en
 @include docstyle.texi
 @setchapternewpage odd
 @documentencoding UTF-8
@@ -96,7 +97,7 @@ This file documents Calc, the GNU Emacs calculator, included with
 GNU Emacs @value{EMACSVER}.
 @end ifnotinfo
 
-Copyright @copyright{} 1990--1991, 2001--2025 Free Software Foundation,
+Copyright @copyright{} 1990--1991, 2001--2026 Free Software Foundation,
 Inc.
 
 @quotation
@@ -167,10 +168,12 @@ longer Info tutorial.)
 @menu
 * Getting Started::       General description and overview.
 @ifinfo
-* Interactive Tutorial::
+* Interactive Tutorial::  Tutorial, and brief instructions on using
+                           the Emacs Info system for reading this manual.
 @end ifinfo
+@ifnotinfo
 * Tutorial::              A step-by-step introduction for beginners.
-
+@end ifnotinfo
 * Introduction::          Introduction to the Calc reference manual.
 * Data Types::            Types of objects manipulated by Calc.
 * Stack and Trail::       Manipulating the stack and trail buffers.
@@ -1243,8 +1246,8 @@ finished in two weeks.
 
 @ifinfo
 @c This node is accessed by the 'C-x * t' command.
-@node Interactive Tutorial, Tutorial, Getting Started, Top
-@chapter Tutorial
+@node Interactive Tutorial, Introduction, Getting Started, Top
+@chapter Interactive Tutorial
 
 @noindent
 Some brief instructions on using the Emacs Info system for this tutorial:
@@ -9571,7 +9574,12 @@ the last rule.
 
 @c [reference]
 
-@node Introduction
+@ifinfo
+@node Introduction, Data Types, Interactive Tutorial, Top
+@end ifinfo
+@ifnotinfo
+@node Introduction, Data Types, Tutorial, Top
+@end ifnotinfo
 @chapter Introduction
 
 @noindent
@@ -35694,10 +35702,9 @@ The variable @code{calc-string-maximum-character} is the maximum value
 of a vector's elements for @code{calc-display-strings}, @code{string},
 and @code{bstring} to display the vector as a string.  This maximum
 @emph{must} represent a character, i.e. it's a non-negative integer less
-than or equal to @code{(max-char)} or @code{0x3FFFFF}.  Any negative
-value effectively disables the display of strings, and for values larger
-than @code{0x3FFFFF} the display acts as if the maximum were
-@code{0x3FFFFF}.  Some natural choices (and their resulting ranges) are:
+than or equal to @code{(max-char)} or @code{0x3FFFFF}.  Any value not
+representing a character effectively disables the display of strings.
+Some natural choices (and their resulting ranges) are:
 
 @itemize
 @item
@@ -35712,6 +35719,14 @@ than @code{0x3FFFFF} the display acts as if the maximum were
 
 The default value of @code{calc-string-maximum-character} is @code{0xFF}
 or 255.
+@end defvar
+
+@defvar calc-inhibit-startup-message
+The variable @code{calc-inhibit-startup-message} controls display of a
+welcome message when starting Calc.  If it is @code{nil} (the default),
+Calc will print a brief message listing key bindings to get help or to
+quit.  If it is non-@code{nil}, Calc will start without printing
+anything.
 @end defvar
 
 @node Reporting Bugs

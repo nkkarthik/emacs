@@ -1,6 +1,6 @@
 ;;; org-goto.el --- Fast navigation in an Org buffer  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2026 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten.dominik@gmail.com>
 ;; Keywords: outlines, hypermedia, calendar, text
@@ -134,14 +134,9 @@ When nil, you can use these keybindings to navigate the buffer:
 	  (org-defkey map "\C-c\C-u" 'outline-up-heading)
 	  map)))
 
-;; `isearch-other-control-char' was removed in Emacs 24.4.
-(if (fboundp 'isearch-other-control-char)
-    (progn
-      (define-key org-goto-local-auto-isearch-map "\C-i" 'isearch-other-control-char)
-      (define-key org-goto-local-auto-isearch-map "\C-m" 'isearch-other-control-char))
-  (define-key org-goto-local-auto-isearch-map "\C-i" nil)
-  (define-key org-goto-local-auto-isearch-map "\C-m" nil)
-  (define-key org-goto-local-auto-isearch-map [return] nil))
+(define-key org-goto-local-auto-isearch-map "\C-i" nil)
+(define-key org-goto-local-auto-isearch-map "\C-m" nil)
+(define-key org-goto-local-auto-isearch-map [return] nil)
 
 (defun org-goto--local-search-headings (string bound noerror)
   "Search and make sure that any matches are in headlines."

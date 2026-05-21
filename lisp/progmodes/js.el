@@ -1,6 +1,6 @@
 ;;; js.el --- Major mode for editing JavaScript  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2026 Free Software Foundation, Inc.
 
 ;; Author: Karl Landstrom <karl.landstrom@brgeight.se>
 ;;         Daniel Colascione <dancol@dancol.org>
@@ -849,7 +849,7 @@ macro as normal text."
       (search-failed
        (goto-char saved-point)
        (unless noerror
-         (signal (car err) (cdr err)))))))
+         (signal err))))))
 
 
 (defun js--re-search-backward-inner (regexp &optional bound count)
@@ -3361,25 +3361,25 @@ their `mode-name' updates to show enabled syntax extensions."
   "Case-sensitive regexps for detecting JSX in JavaScript buffers.
 When `js-jsx-detect-syntax' is non-nil and any of these regexps
 match text near the beginning of a JavaScript buffer,
-`js-jsx-syntax' (which see) will be made buffer-local and set to
-t.")
+`js-jsx-syntax' (which see) will be made buffer-local and set to t.")
 
-(defun js-jsx--detect-and-enable (&optional arbitrarily)
+(defun js-jsx--detect-and-enable (&optional beg end)
   "Detect if JSX is likely to be used, and enable it if so.
 Might make `js-jsx-syntax' buffer-local and set it to t.  Matches
-from the beginning of the buffer, unless optional arg ARBITRARILY
-is non-nil.  Return t after enabling, nil otherwise."
+between BEG..END (defaults to the first 4KB of the buffer).
+Return non-nil after enabling, nil otherwise."
   (when (or (and (buffer-file-name)
                  (string-match-p "\\.jsx\\'" (buffer-file-name)))
             (and js-jsx-detect-syntax
                  (save-excursion
-                   (unless arbitrarily
-                     (goto-char (point-min)))
+                   (unless (integerp beg)
+                     (setq beg (point-min) end (min (+ beg 4000) (point-max))))
+                   (goto-char beg)
                    (catch 'match
                      (mapc
                       (lambda (regexp)
                         (when (let (case-fold-search)
-                                (re-search-forward regexp 4000 t))
+                                (re-search-forward regexp end t))
                           (throw 'match t)))
                       js-jsx-regexps)
                      nil))))
@@ -3393,10 +3393,11 @@ This function is intended for use in `after-change-functions'."
     (save-excursion
       (goto-char beg)
       (beginning-of-line)
-      (save-restriction
-        (narrow-to-region (point) end)
-        (when (js-jsx--detect-and-enable 'arbitrarily)
-          (remove-hook 'after-change-functions #'js-jsx--detect-after-change t))))))
+      ;; `after-change-functions' shouldn't affect the match-data.
+      ;; FIXME: It would be better to move this work to a timer or
+      ;; a `post-command-hook'.
+      (when (save-match-data (js-jsx--detect-and-enable beg end))
+        (remove-hook 'after-change-functions #'js-jsx--detect-after-change t)))))
 
 ;; Ensure all CC Mode "lang variables" are set to valid values.
 ;; js-mode, however, currently uses only those needed for filling.
@@ -3449,7 +3450,7 @@ Check if a node type is available, then return the right indent rules."
                ((parent-is "jsx_fragment") parent js-indent-level)))
     (error
      `(((match "<" "jsx_text") parent 0)
-       ((parent-is "jsx_text") parent js-indent-level)))))
+       ((parent-is "jsx_text") parent-bol js-indent-level)))))
 
 (defun js--treesit-switch-body-helper (_node parent _bol &rest _args)
   "Anchor helper for the switch body..
@@ -3513,63 +3514,64 @@ characters of the current line."
               node parent bol args)
        js-indent-level)))
 
-(defvar js--treesit-indent-rules
-    `((javascript
-       ((parent-is "program") parent-bol 0)
-       ((node-is "}") standalone-parent 0)
-       ((node-is ")") parent-bol 0)
-       ((node-is "]") parent-bol 0)
-       ((node-is ">") parent-bol 0)
-       ((and (parent-is "comment") c-ts-common-looking-at-star)
-        c-ts-common-comment-start-after-first-star -1)
-       ((parent-is "comment") prev-adaptive-prefix 0)
-       ((n-p-gp "identifier" "ternary_expression" "parenthesized_expression")
-	parent 0)
-       ((parent-is "ternary_expression") parent-bol js-indent-level)
-       ((parent-is "sequence_expression") parent 0)
-       ((parent-is "member_expression") js--treesit-member-chained-expression-helper 0)
-       ((parent-is "named_imports") parent-bol js-indent-level)
-       ((parent-is "statement_block") standalone-parent js-indent-level)
-       ((parent-is "variable_declarator") parent 0)
-       ((parent-is "arguments") parent-bol js-indent-level)
-       ((parent-is "array") parent-bol js-indent-level)
-       ((parent-is "formal_parameters") parent-bol js-indent-level)
-       ((parent-is "template_string") no-indent) ; Don't indent the string contents.
-       ((parent-is "template_substitution") parent-bol js-indent-level)
-       ((parent-is "object_pattern") parent-bol js-indent-level)
-       ((parent-is "object") parent-bol js-indent-level)
-       ((parent-is "pair") parent-bol js-indent-level)
-       ((parent-is "arrow_function") js--treesit-arrow-function-helper 0)
-       ((parent-is "parenthesized_expression") parent-bol js-indent-level)
-       ((parent-is "binary_expression") parent-bol js-indent-level)
-       ((parent-is "assignment_expression") parent-bol js-indent-level)
-       ((parent-is "class_body") parent-bol js-indent-level)
-       ;; "{" on the newline, should stay here.
-       ((node-is "statement_block") parent-bol 0)
-       ((parent-is "switch_statement") parent-bol 0)
-       ((parent-is "switch_body") js--treesit-switch-body-helper 0)
-       ((parent-is ,(rx "switch_" (or "case" "default"))) parent-bol js-indent-level)
-       ((match "while" "do_statement") parent-bol 0)
-       ((match "else" "if_statement") parent-bol 0)
-       ((parent-is ,(rx (or (seq (or "if" "for" "for_in" "while" "do") "_statement")
-                            "else_clause")))
-        parent-bol js-indent-level)
+(defun js--treesit-indent-rules ()
+  "Return tree-sitter indent rules for `js-ts-mode'."
+  `((javascript
+     ((parent-is "program") parent-bol 0)
+     ((node-is "}") standalone-parent 0)
+     ((node-is ")") parent-bol 0)
+     ((node-is "]") parent-bol 0)
+     ((node-is ">") parent-bol 0)
+     ((and (parent-is "comment") c-ts-common-looking-at-star)
+      c-ts-common-comment-start-after-first-star -1)
+     ((parent-is "comment") prev-adaptive-prefix 0)
+     ((n-p-gp "identifier" "ternary_expression" "parenthesized_expression")
+      parent 0)
+     ((parent-is "ternary_expression") parent-bol js-indent-level)
+     ((parent-is "sequence_expression") parent 0)
+     ((parent-is "member_expression") js--treesit-member-chained-expression-helper 0)
+     ((parent-is "named_imports") parent-bol js-indent-level)
+     ((parent-is "statement_block") standalone-parent js-indent-level)
+     ((parent-is "variable_declarator") parent 0)
+     ((parent-is "arguments") parent-bol js-indent-level)
+     ((parent-is "array") parent-bol js-indent-level)
+     ((parent-is "formal_parameters") parent-bol js-indent-level)
+     ((parent-is "template_string") no-indent) ; Don't indent the string contents.
+     ((parent-is "template_substitution") parent-bol js-indent-level)
+     ((parent-is "object_pattern") parent-bol js-indent-level)
+     ((parent-is "object") parent-bol js-indent-level)
+     ((parent-is "pair") parent-bol js-indent-level)
+     ((parent-is "arrow_function") js--treesit-arrow-function-helper 0)
+     ((parent-is "parenthesized_expression") parent-bol js-indent-level)
+     ((parent-is "binary_expression") parent-bol js-indent-level)
+     ((parent-is "assignment_expression") parent-bol js-indent-level)
+     ((parent-is "class_body") parent-bol js-indent-level)
+     ;; "{" on the newline, should stay here.
+     ((node-is "statement_block") parent-bol 0)
+     ((parent-is "switch_statement") parent-bol 0)
+     ((parent-is "switch_body") js--treesit-switch-body-helper 0)
+     ((parent-is ,(rx "switch_" (or "case" "default"))) parent-bol js-indent-level)
+     ((match "while" "do_statement") parent-bol 0)
+     ((match "else" "if_statement") parent-bol 0)
+     ((parent-is ,(rx (or (seq (or "if" "for" "for_in" "while" "do") "_statement")
+                          "else_clause")))
+      parent-bol js-indent-level)
 
-       ;; JSX
-       ,@(js-jsx--treesit-indent-compatibility-bb1f97b)
-       ((node-is "jsx_closing_element") parent 0)
-       ((match "jsx_element" "statement") parent js-indent-level)
-       ((parent-is "jsx_element") parent js-indent-level)
-       ((parent-is "jsx_text") parent-bol js-indent-level)
-       ((parent-is "jsx_opening_element") parent js-indent-level)
-       ((parent-is "jsx_expression") parent-bol js-indent-level)
-       ((match "/" "jsx_self_closing_element") parent 0)
-       ((parent-is "jsx_self_closing_element") parent js-indent-level)
-       ;; FIXME(Theo): This no-node catch-all should be removed.  When is it needed?
-       (no-node parent-bol 0))
-      (jsdoc
-       ((and (parent-is "document") c-ts-common-looking-at-star)
-        c-ts-common-comment-start-after-first-star -1))))
+     ;; JSX
+     ,@(js-jsx--treesit-indent-compatibility-bb1f97b)
+     ((node-is "jsx_closing_element") parent 0)
+     ((match "jsx_element" "statement") parent js-indent-level)
+     ((parent-is "jsx_element") parent js-indent-level)
+     ((parent-is "jsx_text") parent-bol js-indent-level)
+     ((parent-is "jsx_opening_element") parent js-indent-level)
+     ((parent-is "jsx_expression") parent-bol js-indent-level)
+     ((match "/" "jsx_self_closing_element") parent 0)
+     ((parent-is "jsx_self_closing_element") parent js-indent-level)
+     ;; FIXME(Theo): This no-node catch-all should be removed.  When is it needed?
+     (no-node parent-bol 0))
+    (jsdoc
+     ((and (parent-is "document") c-ts-common-looking-at-star)
+      c-ts-common-comment-start-after-first-star -1))))
 
 (defvar js--treesit-keywords
   '("as" "async" "await" "break" "case" "catch" "class" "const" "continue"
@@ -3586,7 +3588,8 @@ characters of the current line."
     "&&" "||" "!")
   "JavaScript operators for tree-sitter font-locking.")
 
-(defvar js--treesit-font-lock-settings
+(defun js--treesit-font-lock-settings ()
+  "Return tree-sitter font-lock settings for `js-ts-mode'."
   (treesit-font-lock-rules
 
    :language 'javascript
@@ -3717,7 +3720,7 @@ characters of the current line."
    :language 'jsdoc
    :override t
    :feature 'keyword
-   '((tag_name) @font-lock-constant-face)
+   '((tag_name) @font-lock-doc-markup-face)
 
    :language 'jsdoc
    :override t
@@ -3732,8 +3735,7 @@ characters of the current line."
    :language 'jsdoc
    :override t
    :feature 'definition
-   '((identifier) @font-lock-variable-name-face))
-  "Tree-sitter font-lock settings.")
+   '((identifier) @font-lock-variable-name-face)))
 
 (defun js--fontify-template-string (node override start end &rest _)
   "Fontify template string but not substitution inside it.
@@ -3815,7 +3817,9 @@ Return nil if there is no name or if NODE is not a defun node."
 This mode is intended to be inherited by concrete major modes.
 Currently there are `js-mode' and `js-ts-mode'."
   :group 'js
-  nil)
+  (setq-local hs-block-start-regexp "\\s(\\|{\\|\"")
+  (setq-local hs-block-end-regexp "\\s)\\|}\\|\"")
+  (setq-local hs-c-start-regexp "/[*/]"))
 
 ;;;###autoload
 (define-derived-mode js-mode js-base-mode "JavaScript"
@@ -3932,38 +3936,11 @@ Currently there are `js-mode' and `js-ts-mode'."
   "Nodes that designate sentences in JavaScript.
 See `treesit-thing-settings' for more information.")
 
-(defvar js--treesit-sexp-nodes
-  '("expression"
-    "parenthesized_expression"
-    "formal_parameters"
-    "pattern"
-    "array"
-    "function"
-    "string"
-    "template_string"
-    "template_substitution"
-    "escape"
-    "template"
-    "regex"
-    "number"
-    "identifier"
-    "property_identifier"
-    "this"
-    "super"
-    "true"
-    "false"
-    "null"
-    "undefined"
-    "arguments"
-    "pair"
-    "jsx"
-    "statement_block"
-    "object"
-    "object_pattern"
-    "named_imports"
-    "class_body")
+(defvar js--treesit-sexp-nodes nil
   "Nodes that designate sexps in JavaScript.
 See `treesit-thing-settings' for more information.")
+(make-obsolete 'js--treesit-sexp-nodes
+               "`js--treesit-sexp-nodes' will be removed soon, use `js--treesit-thing-settings' instead." "31.1")
 
 (defvar js--treesit-list-nodes
   '("export_clause"
@@ -3994,7 +3971,13 @@ See `treesit-thing-settings' for more information.")
 
 (defvar js--treesit-thing-settings
   `((javascript
-     (sexp ,(js--regexp-opt-symbol js--treesit-sexp-nodes))
+     (sexp ,(if js--treesit-sexp-nodes
+                (js--regexp-opt-symbol js--treesit-sexp-nodes)
+              `(not (or (and named
+                             ,(rx bos (or "program" "comment") eos))
+                        (and anonymous
+                             ,(rx (or "{" "}" "[" "]"
+                                      "(" ")" ",")))))))
      (list ,(js--regexp-opt-symbol js--treesit-list-nodes))
      (sentence ,(js--regexp-opt-symbol js--treesit-sentence-nodes))
      (text ,(js--regexp-opt-symbol '("comment"
@@ -4080,14 +4063,14 @@ See `treesit-thing-settings' for more information.")
     (setq-local treesit-primary-parser (treesit-parser-create 'javascript))
 
     ;; Indent.
-    (setq-local treesit-simple-indent-rules js--treesit-indent-rules)
+    (setq-local treesit-simple-indent-rules (js--treesit-indent-rules))
     ;; Navigation.
     (setq-local treesit-defun-type-regexp js--treesit-defun-type-regexp)
     (setq-local treesit-defun-name-function #'js--treesit-defun-name)
     (setq-local treesit-thing-settings js--treesit-thing-settings)
 
     ;; Fontification.
-    (setq-local treesit-font-lock-settings js--treesit-font-lock-settings)
+    (setq-local treesit-font-lock-settings (js--treesit-font-lock-settings))
     (setq-local treesit-font-lock-feature-list js--treesit-font-lock-feature-list)
 
     (when (treesit-ensure-installed 'jsdoc)
@@ -4105,12 +4088,14 @@ See `treesit-thing-settings' for more information.")
     ;; Outline minor mode
     (setq-local treesit-outline-predicate js-ts-mode--outline-predicate)
 
-    (treesit-major-mode-setup)
-
-    (add-to-list 'auto-mode-alist
-                 '("\\(\\.js[mx]?\\|\\.har\\)\\'" . js-ts-mode))))
+    (treesit-major-mode-setup)))
 
 (derived-mode-add-parents 'js-ts-mode '(js-mode))
+
+;;;###autoload
+(when (boundp 'treesit-major-mode-remap-alist)
+  (add-to-list 'treesit-major-mode-remap-alist
+               '(javascript-mode . js-ts-mode)))
 
 (defvar js-ts--s-p-query
   (when (treesit-available-p)
@@ -4142,6 +4127,7 @@ See `treesit-thing-settings' for more information.")
   :syntax-table js-mode-syntax-table
   (js--mode-setup) ;Reuse most of `js-mode', but not as parent (bug#67463).
   (setq-local js-enabled-frameworks nil)
+  (setq-local editorconfig-indent-size-vars '(js-indent-level))
   ;; Speed up `syntax-ppss': JSON files can be big but can't hold
   ;; regexp matchers nor #! thingies (and `js-enabled-frameworks' is nil).
   (setq-local syntax-propertize-function #'ignore))

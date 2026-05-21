@@ -1,6 +1,6 @@
 ;;; erc-scenarios-match.el --- Misc `erc-match' scenarios -*- lexical-binding: t -*-
 
-;; Copyright (C) 2023-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2023-2026 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -24,10 +24,7 @@
   (let ((load-path (cons (ert-resource-directory) load-path)))
     (require 'erc-scenarios-common)))
 
-(eval-when-compile
-  (require 'erc-join)
-  (require 'erc-match))
-
+(require 'erc-match)
 (require 'erc-stamp)
 (require 'erc-fill)
 

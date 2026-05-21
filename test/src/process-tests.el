@@ -1,6 +1,6 @@
 ;;; process-tests.el --- Testing the process facilities -*- lexical-binding: t -*-
 
-;; Copyright (C) 2013-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2026 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -106,6 +106,9 @@ process to complete."
 	      (looking-at "hello stdout!")))
     (should (with-current-buffer stderr-buffer
 	      (goto-char (point-min))
+              ;; Instrument for bug#80166.
+              (when (getenv "EMACS_EMBA_CI")
+                (message "stderr\n%s" (buffer-string)))
 	      (looking-at "hello stderr!"))))))
 
 (ert-deftest process-test-stderr-filter ()
@@ -186,13 +189,17 @@ process to complete."
                   ;; convert forward slashes to backslashes.
                   (expand-file-name (executable-find "attrib.exe")))
                  (_ "/bin//sh")))
-         (samepath (copy-sequence path)))
-    ;; Make sure 'start-process' actually goes all the way and invokes
-    ;; the program.
-    (should (process-live-p (condition-case nil
-                                (start-process "" nil path)
-                              (error nil))))
-    (should (equal path samepath)))))
+         (samepath (copy-sequence path))
+         (process (condition-case nil
+                      (start-process "" nil path)
+                    (error nil))))
+    (unwind-protect
+        (progn
+          ;; Make sure 'start-process' actually goes all the way and
+          ;; invokes the program.
+          (should (process-live-p process))
+          (should (equal path samepath)))
+      (delete-process process)))))
 
 (ert-deftest make-process/noquery-stderr ()
   "Checks that Bug#30031 is fixed."
@@ -543,7 +550,7 @@ See Bug#30460."
           ;; all `file-error' signals.
           (and ,message
                (not (string-equal (caddr ,err) ,message))
-               (signal (car ,err) (cdr ,err))))))))
+               (signal ,err)))))))
 
 (defmacro process-tests--with-buffers (var &rest body)
   "Bind VAR to nil and evaluate BODY.
@@ -927,6 +934,9 @@ have written output."
 
 (ert-deftest process-tests/multiple-threads-waiting ()
   :tags (if (getenv "EMACS_EMBA_CI") '(:unstable))
+  ;; This test assumes too much of Posix functionality, and thus is
+  ;; unreliable on MS-Windows.
+  (skip-when (eq system-type 'windows-nt))
   (skip-unless (fboundp 'make-thread))
   (with-timeout (60 (ert-fail "Test timed out"))
     (process-tests--with-processes processes
@@ -1023,7 +1033,7 @@ Return nil if FILENAME doesn't exist."
   (with-temp-buffer
     (let* ((proc-buf (current-buffer))
 	   ;; Start a new emacs process to wait idly until interrupted.
-	   (cmd "emacs -batch --eval=\"(sit-for 50000)\"")
+	   (cmd "emacs -Q -batch --eval=\"(sit-for 50000)\"")
 	   (proc (start-file-process-shell-command
                   "test/process-sentinel-signal-event" proc-buf cmd))
 	   (events '()))
@@ -1037,18 +1047,89 @@ Return nil if FILENAME doesn't exist."
       (should (equal 'run (process-status proc)))
       ;; Interrupt the sub-process and wait for it to die.
       (interrupt-process proc)
-      (sleep-for 2)
+      (sleep-for 3)
       ;; Should have received SIGINT...
-      (should (equal 'signal (process-status proc)))
-      (should (equal 2 (process-exit-status proc)))
-      ;; ...and the change description should be "interrupt".
-      (should (equal '("interrupt\n") events)))))
+      (should (equal '(signal 2 ("interrupt\n"))
+                     (list (process-status proc)
+                           (process-exit-status proc)
+                           events))))))
+
+(defun process-tests/broken-pipe (connection-type)
+  "Test handling of broken pipes; see bug#79079.
+This test runs a shell script that reads a line of text and closes
+stdin.  We send two lines of text to the script; the second should
+signal an error indicating that the pipe has been closed.  The script
+should also run to completion, printing out the line of text it read."
+  (with-temp-buffer
+    (let ((saw-error nil)
+          (proc (make-process
+                 :name "test" :buffer (current-buffer)
+                 :command `(,(expand-file-name invocation-name
+                                               invocation-directory)
+                            "-Q" "--batch" "--eval"
+                            ,(prin1-to-string
+                              '(let ((line (read-string "")))
+                                 (file--close-stream 'stdin)
+                                 (message "closed stream")
+                                 (sit-for 1)
+                                 (message "%s" line))))
+                 :connection-type connection-type)))
+      (process-send-string proc "hello\n")
+      (while (not (string-prefix-p "closed stream\n" (buffer-string)))
+        (accept-process-output))
+      (condition-case err
+          (process-send-string proc "extra\n")
+        (error
+         (setq saw-error t)
+         (should (string-match
+                  (rx bos "Process test" (? "<" (+ digit) ">")
+                      " no longer connected to pipe; closed it"
+                      eos)
+                  (error-message-string err)))))
+      (unless saw-error
+        (ert-fail "Expected error from `process-send-string'"))
+      ;; Wait for the process to finish, and check results.
+      (while (eq (process-status proc) 'run)
+        (accept-process-output))
+      (accept-process-output)
+      (should (eq (process-status proc) 'exit))
+      (should (eq (process-exit-status proc) 0))
+      (should (string-match
+               (rx bos "closed stream\nhello\n\nProcess test"
+                   (? "<" (+ digit) ">") " finished\n" eos)
+               (buffer-string))))))
+
+;; These tests only works when running Emacs interactively, since we
+;; don't catch SIGPIPE in batch mode.  TODO: Fixing bug#66186 would
+;; probably allow running these tests in batch mode.
+(ert-deftest process-tests/broken-pipe/pipe-all ()
+  (skip-when noninteractive)
+  (process-tests/broken-pipe 'pipe))
+
+(ert-deftest process-tests/broken-pipe/pipe-stdin ()
+  (skip-when (or noninteractive
+                 ;; Emacs doesn't support PTYs on MS-Windows.
+                 (not (memq system-type '(ms-dos windows-nt)))))
+  (process-tests/broken-pipe '(pipe . pty)))
 
 (ert-deftest process-num-processors ()
   "Sanity checks for num-processors."
   (should (equal (num-processors) (num-processors)))
   (should (integerp (num-processors)))
   (should (< 0 (num-processors))))
+
+(defmacro process-test--check-pipe-process (args should-have-buffer)
+  `(let ((pipe-process (make-pipe-process ,@args)))
+     (unwind-protect
+         (,(if should-have-buffer 'should 'should-not)
+          (process-buffer pipe-process))
+       (delete-process pipe-process))))
+
+(ert-deftest process-test-make-pipe-process-no-buffer ()
+  "Test that a pipe process can be created without a buffer."
+  (process-test--check-pipe-process (:name "test") t)
+  (process-test--check-pipe-process (:name "test" :buffer "test") t)
+  (process-test--check-pipe-process (:name "test" :buffer nil) nil))
 
 (provide 'process-tests)
 ;;; process-tests.el ends here

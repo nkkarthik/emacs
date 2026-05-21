@@ -1,6 +1,6 @@
 ;;; tramp-androidsu.el --- Tramp method for Android superuser shells  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2024-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2024-2026 Free Software Foundation, Inc.
 
 ;; Author: Po Lu
 ;; Keywords: comm, processes
@@ -311,9 +311,7 @@ FUNCTION."
 		  (when
 		      (and
 		       (string-search "=" elt)
-		       (not
-			(member
-			 elt (default-toplevel-value 'process-environment))))
+		       (not (tramp-local-environment-variable-p elt)))
 		    (setq env (cons elt env)))))
 	   ;; Add remote path if exists.
 	   (env (let ((remote-path (string-join (tramp-get-remote-path v) ":")))
@@ -531,13 +529,9 @@ arguments to pass to the OPERATION."
 
 (connection-local-set-profiles
  `(:application tramp :protocol ,tramp-androidsu-method)
- 'tramp-androidsu-connection-local-default-profile)
-
-(with-eval-after-load 'shell
-  (connection-local-set-profiles
-   `(:application tramp :protocol ,tramp-androidsu-method)
-   'tramp-adb-connection-local-default-shell-profile
-   'tramp-adb-connection-local-default-ps-profile))
+ 'tramp-androidsu-connection-local-default-profile
+ 'tramp-adb-connection-local-default-shell-profile
+ 'tramp-adb-connection-local-default-ps-profile)
 
 (add-hook 'tramp-unload-hook
 	  (lambda ()

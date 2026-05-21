@@ -1,6 +1,6 @@
 /* Lisp parsing and input streams.
 
-Copyright (C) 1985-1989, 1993-1995, 1997-2025 Free Software Foundation,
+Copyright (C) 1985-1989, 1993-1995, 1997-2026 Free Software Foundation,
 Inc.
 
 This file is part of GNU Emacs.
@@ -45,7 +45,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "blockinput.h"
 #include "pdumper.h"
 #include <c-ctype.h>
-#include <vla.h>
 
 #ifdef MSDOS
 #include "msdos.h"
@@ -522,6 +521,12 @@ from_file_p (source_t *source)
   return source->get == source_file_get;
 }
 
+static bool
+from_buffer_p (source_t *source)
+{
+  return source->get == source_buffer_get;
+}
+
 static void
 skip_dyn_bytes (source_t *source, ptrdiff_t n)
 {
@@ -630,7 +635,7 @@ unreadbyte_from_file (unsigned char c)
 static AVOID
 invalid_syntax_lisp (Lisp_Object s, source_t *source)
 {
-  if (source->get == source_buffer_get)
+  if (from_buffer_p (source))
     {
       Lisp_Object buffer = source->object;
       /* Get the line/column in the buffer.  */
@@ -2114,12 +2119,16 @@ build_load_history (Lisp_Object filename, bool entire)
    information.  */
 
 static AVOID
-end_of_file_error (void)
+end_of_file_error (source_t *source)
 {
-  if (STRINGP (Vload_true_file_name))
+  if (from_file_p (source))
+    /* Only Fload calls read on a file, and Fload always binds
+       load-true-file-name around the call.  */
     xsignal1 (Qend_of_file, Vload_true_file_name);
-
-  xsignal0 (Qend_of_file);
+  else if (from_buffer_p (source))
+    xsignal1 (Qend_of_file, source->object);
+  else
+    xsignal0 (Qend_of_file);
 }
 
 static Lisp_Object
@@ -2196,6 +2205,12 @@ readevalloop (Lisp_Object readcharfun,
     emacs_abort ();
 
   specbind (Qstandard_input, readcharfun);
+
+  /* In an .elc file, all shorthand expansion has already taken place, so
+     make sure we disable any read-symbol-shorthands set higher up in
+     the stack of recursive 'load'. */
+  if (STRINGP (sourcename) && suffix_p (sourcename, ".elc"))
+    specbind (Qread_symbol_shorthands, Qnil);
 
   /* If lexical binding is active (either because it was specified in
      the file's header, or via a buffer-local variable), create an empty
@@ -2365,7 +2380,7 @@ variable and any
   -*- lexical-binding: t -*-
 settings in the buffer; if there is no such setting, and the
 buffer-local value of the variable is nil, the buffer will be
-evaluated with the value of `lexical binding' equal to its
+evaluated with the value of `lexical-binding' equal to its
 top-level default value, as returned by `default-toplevel-value'.
 
 This function preserves the position of point.  */)
@@ -2604,7 +2619,7 @@ read_char_escape (source_t *source, int next_char)
   switch (c)
     {
     case -1:
-      end_of_file_error ();
+      end_of_file_error (source);
 
     case 'a': chr = '\a'; break;
     case 'b': chr = '\b'; break;
@@ -2777,7 +2792,7 @@ read_char_escape (source_t *source, int next_char)
           {
             int c = readchar (source);
             if (c < 0)
-              end_of_file_error ();
+              end_of_file_error (source);
             if (c == '}')
               break;
             if (c >= 0x80)
@@ -2819,7 +2834,7 @@ read_char_escape (source_t *source, int next_char)
       break;
     }
   if (chr < 0)
-    end_of_file_error ();
+    end_of_file_error (source);
   eassert (chr >= 0 && chr < (1 << CHARACTERBITS));
 
   /* Apply Control modifiers, using the rules:
@@ -2982,7 +2997,7 @@ read_char_literal (source_t *source)
 {
   int ch = readchar (source);
   if (ch < 0)
-    end_of_file_error ();
+    end_of_file_error (source);
 
   /* Accept `single space' syntax like (list ? x) where the
      whitespace character is SPC or TAB.
@@ -3118,7 +3133,7 @@ read_string_literal (source_t *source)
     }
 
   if (ch < 0)
-    end_of_file_error ();
+    end_of_file_error (source);
 
   if (!force_multibyte && force_singlebyte)
     {
@@ -3548,7 +3563,7 @@ skip_space_and_comments (source_t *source)
 	  c = readchar (source);
 	while (c >= 0 && c != '\n');
       if (c < 0)
-	end_of_file_error ();
+	end_of_file_error (source);
     }
   while (c <= 32 || c == NO_BREAK_SPACE);
   unreadchar (source, c);
@@ -3734,7 +3749,7 @@ read0 (source_t *source, bool locate_syms)
   Lisp_Object obj;
   int c = readchar (source);
   if (c < 0)
-    end_of_file_error ();
+    end_of_file_error (source);
 
   switch (c)
     {
@@ -4151,7 +4166,7 @@ read0 (source_t *source, bool locate_syms)
 	      {
 		c = readchar (source);
 		if (c < 0)
-		  end_of_file_error ();
+		  end_of_file_error (source);
 		quoted = true;
 	      }
 
@@ -5225,8 +5240,9 @@ defsubr (union Aligned_Lisp_Subr *aname)
    C variable of type intmax_t.  Sample call (with "xx" to fool make-docfile):
    DEFxxVAR_INT ("emacs-priority", &emacs_priority, "Documentation");  */
 void
-defvar_int (struct Lisp_Intfwd const *i_fwd, char const *namestring)
+defvar_int (struct Lisp_Fwd const *i_fwd, char const *namestring)
 {
+  eassert (i_fwd->type == Lisp_Fwd_Int);
   Lisp_Object sym = intern_c_string (namestring);
   XBARE_SYMBOL (sym)->u.s.declared_special = true;
   XBARE_SYMBOL (sym)->u.s.redirect = SYMBOL_FORWARDED;
@@ -5235,8 +5251,9 @@ defvar_int (struct Lisp_Intfwd const *i_fwd, char const *namestring)
 
 /* Similar but define a variable whose value is t if 1, nil if 0.  */
 void
-defvar_bool (struct Lisp_Boolfwd const *b_fwd, char const *namestring)
+defvar_bool (struct Lisp_Fwd const *b_fwd, char const *namestring)
 {
+  eassert (b_fwd->type == Lisp_Fwd_Bool);
   Lisp_Object sym = intern_c_string (namestring);
   XBARE_SYMBOL (sym)->u.s.declared_special = true;
   XBARE_SYMBOL (sym)->u.s.redirect = SYMBOL_FORWARDED;
@@ -5250,8 +5267,9 @@ defvar_bool (struct Lisp_Boolfwd const *b_fwd, char const *namestring)
    gc-marked for some other reason, since marking the same slot twice
    can cause trouble with strings.  */
 void
-defvar_lisp_nopro (struct Lisp_Objfwd const *o_fwd, char const *namestring)
+defvar_lisp_nopro (struct Lisp_Fwd const *o_fwd, char const *namestring)
 {
+  eassert (o_fwd->type == Lisp_Fwd_Obj);
   Lisp_Object sym = intern_c_string (namestring);
   XBARE_SYMBOL (sym)->u.s.declared_special = true;
   XBARE_SYMBOL (sym)->u.s.redirect = SYMBOL_FORWARDED;
@@ -5259,18 +5277,20 @@ defvar_lisp_nopro (struct Lisp_Objfwd const *o_fwd, char const *namestring)
 }
 
 void
-defvar_lisp (struct Lisp_Objfwd const *o_fwd, char const *namestring)
+defvar_lisp (struct Lisp_Fwd const *o_fwd, char const *namestring)
 {
+  eassert (o_fwd->type == Lisp_Fwd_Obj);
   defvar_lisp_nopro (o_fwd, namestring);
-  staticpro (o_fwd->objvar);
+  staticpro (o_fwd->u.objvar);
 }
 
 /* Similar but define a variable whose value is the Lisp Object stored
    at a particular offset in the current kboard object.  */
 
 void
-defvar_kboard (struct Lisp_Kboard_Objfwd const *ko_fwd, char const *namestring)
+defvar_kboard (struct Lisp_Fwd const *ko_fwd, char const *namestring)
 {
+  eassert (ko_fwd->type == Lisp_Fwd_Kboard_Obj);
   Lisp_Object sym = intern_c_string (namestring);
   XBARE_SYMBOL (sym)->u.s.declared_special = true;
   XBARE_SYMBOL (sym)->u.s.redirect = SYMBOL_FORWARDED;
@@ -5670,7 +5690,7 @@ the rest of the FUNCS.  */);
 	       doc: /* Alist mapping loaded file names to symbols and features.
 Each alist element should be a list (FILE-NAME ENTRIES...), where
 FILE-NAME is the name of a file that has been loaded into Emacs.
-The file name is absolute and true (i.e. it doesn't contain symlinks).
+The file name is absolute.
 As an exception, one of the alist elements may have FILE-NAME nil,
 for symbols and features not associated with any file.
 
@@ -5897,6 +5917,7 @@ will use instead of `load-path' to look for the file to load.  */);
 	       doc: /* Function to decide default lexical-binding.  */);
   Vinternal__get_default_lexical_binding_function = Qnil;
 
+  DEFSYM (Qread_symbol_shorthands, "read-symbol-shorthands");
   DEFVAR_LISP ("read-symbol-shorthands", Vread_symbol_shorthands,
           doc: /* Alist of known symbol-name shorthands.
 This variable's value can only be set via file-local variables.

@@ -1,6 +1,6 @@
 /* Functions for creating and updating GTK widgets.
 
-Copyright (C) 2003-2025 Free Software Foundation, Inc.
+Copyright (C) 2003-2026 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -36,6 +36,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 typedef struct x_output xp_output;
 #else
 #define xp pgtk
+#include "xsettings.h"
 typedef struct pgtk_output xp_output;
 #endif
 #include "blockinput.h"
@@ -1180,8 +1181,7 @@ xg_frame_set_char_size (struct frame *f, int width, int height)
   int outer_height
     = height + FRAME_TOOLBAR_HEIGHT (f) + FRAME_MENUBAR_HEIGHT (f);
   int outer_width = width + FRAME_TOOLBAR_WIDTH (f);
-  bool was_visible = false;
-  bool hide_child_frame;
+  int scale = xg_get_scale (f);
 
 #ifndef HAVE_PGTK
   gtk_window_get_size (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
@@ -1201,11 +1201,10 @@ xg_frame_set_char_size (struct frame *f, int width, int height)
     }
 #endif
 
-  /* Do this before resize, as we don't know yet if we will be resized.  */
-  FRAME_RIF (f)->clear_under_internal_border (f);
-
-  outer_height /= xg_get_scale (f);
-  outer_width /= xg_get_scale (f);
+  outer_height /= scale;
+  outer_width /= scale;
+  height = outer_height * scale;
+  width = outer_width * scale;
 
   xg_wm_set_size_hint (f, 0, 0);
 
@@ -1219,108 +1218,36 @@ xg_frame_set_char_size (struct frame *f, int width, int height)
      remain unchanged but giving the frame back its normal size will
      be broken ... */
   if (EQ (fullscreen, Qfullwidth) && width == FRAME_PIXEL_WIDTH (f))
-#ifndef HAVE_PGTK
-    gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
-		       gwidth, outer_height);
-#else
-    if (FRAME_GTK_OUTER_WIDGET (f))
-      {
-	gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
-			   gwidth, outer_height);
-      }
-    else
-      {
-	gtk_widget_set_size_request (FRAME_GTK_WIDGET (f),
-				     gwidth, outer_height);
-      }
-#endif
+    outer_width = gwidth;
   else if (EQ (fullscreen, Qfullheight) && height == FRAME_PIXEL_HEIGHT (f))
-#ifndef HAVE_PGTK
-    gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
-		       outer_width, gheight);
-#else
-    if (FRAME_GTK_OUTER_WIDGET (f))
-      {
-	gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
-			   outer_width, gheight);
-      }
-    else
-      {
-	gtk_widget_set_size_request (FRAME_GTK_WIDGET (f),
-				     outer_width, gheight);
-      }
-#endif
-  else if (FRAME_PARENT_FRAME (f) && FRAME_VISIBLE_P (f))
-    {
-      was_visible = true;
-#ifndef HAVE_PGTK
-      hide_child_frame = EQ (x_gtk_resize_child_frames, Qhide);
-#else
-      hide_child_frame = false;
-#endif
-
-      if (outer_width != gwidth || outer_height != gheight)
-	{
-          if (hide_child_frame)
-            {
-              block_input ();
-#ifndef HAVE_PGTK
-              gtk_widget_hide (FRAME_GTK_OUTER_WIDGET (f));
-#else
-	      gtk_widget_hide (FRAME_WIDGET (f));
-#endif
-              unblock_input ();
-            }
-
-#ifndef HAVE_PGTK
-	  gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
-			     outer_width, outer_height);
-#else
-	  if (FRAME_GTK_OUTER_WIDGET (f))
-	    {
-	      gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
-				 outer_width, outer_height);
-	    }
-	  else
-	    {
-	      gtk_widget_set_size_request (FRAME_GTK_WIDGET (f),
-					   outer_width, outer_height);
-	    }
-#endif
-
-          if (hide_child_frame)
-            {
-              block_input ();
-#ifndef HAVE_PGTK
-              gtk_widget_show_all (FRAME_GTK_OUTER_WIDGET (f));
-#else
-	      gtk_widget_show_all (FRAME_WIDGET (f));
-#endif
-              unblock_input ();
-            }
-
-	  fullscreen = Qnil;
-	}
-    }
+    outer_height = gheight;
   else
-    {
+    fullscreen = Qnil;
+
 #ifndef HAVE_PGTK
-      gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
+  if (FRAME_PARENT_FRAME (f))
+    {
+      /* Send the resize request immediately.  */
+      gdk_window_resize (gtk_widget_get_window (FRAME_GTK_OUTER_WIDGET (f)),
 			 outer_width, outer_height);
-#else
-      if (FRAME_GTK_OUTER_WIDGET (f))
-	{
-	  gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
-			     outer_width, outer_height);
-	}
-      else
-	{
-	  gtk_widget_set_size_request (FRAME_GTK_WIDGET (f),
-				       outer_width, outer_height);
-	}
+      /* Resize all inner widgets and Cairo surface right away so the
+	 next redisplay drawing isn't clipped to the old size.  */
+      GtkAllocation alloc = {0, 0, outer_width, outer_height};
+      gtk_widget_size_allocate (FRAME_GTK_OUTER_WIDGET (f), &alloc);
+#ifdef USE_CAIRO
+      x_cr_update_surface_desired_size (f, width, height);
 #endif
-      fullscreen = Qnil;
     }
+  gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
+		     outer_width, outer_height);
+#else
+  if (FRAME_GTK_OUTER_WIDGET (f))
+    gtk_window_resize (GTK_WINDOW (FRAME_GTK_OUTER_WIDGET (f)),
+		       outer_width, outer_height);
+  else				/* PGTK child frame.  */
+    gtk_widget_set_size_request (FRAME_GTK_WIDGET (f),
+				 outer_width, outer_height);
+#endif
 
   SET_FRAME_GARBAGED (f);
   cancel_mouse_face (f);
@@ -1332,7 +1259,7 @@ xg_frame_set_char_size (struct frame *f, int width, int height)
      size as fast as possible.
      For unmapped windows, we can set rows/cols.  When
      the frame is mapped again we will (hopefully) get the correct size.  */
-  if (FRAME_VISIBLE_P (f) && !was_visible)
+  if (FRAME_VISIBLE_P (f) && !FRAME_PARENT_FRAME (f))
     {
       if (CONSP (frame_size_history))
 	frame_size_history_extra
@@ -1382,6 +1309,88 @@ xg_height_or_width_changed (struct frame *f)
   x_wm_set_size_hint (f, 0, 0);
 }
 #endif
+
+/** Move and resize the outer window of frame F.  WIDTH and HEIGHT are
+    the new native pixel sizes of F.  */
+void
+xg_frame_set_size_and_position (struct frame *f, int width, int height)
+{
+  int outer_height
+    = height + FRAME_TOOLBAR_HEIGHT (f) + FRAME_MENUBAR_HEIGHT (f);
+  int outer_width = width + FRAME_TOOLBAR_WIDTH (f);
+  int scale = xg_get_scale (f);
+  int x = f->left_pos;
+  int y = f->top_pos;
+  GdkWindow *gwin = NULL;
+  int flags = 0;
+
+  if (FRAME_GTK_OUTER_WIDGET (f))
+    gwin = gtk_widget_get_window (FRAME_GTK_OUTER_WIDGET (f));
+  else
+    gwin = gtk_widget_get_window (FRAME_GTK_WIDGET (f));
+
+  outer_height /= scale;
+  outer_width /= scale;
+  height = outer_height * scale;
+  width = outer_width * scale;
+
+  x /= scale;
+  y /= scale;
+
+  /* Full force ahead.  For top-level frames the gravity will get reset
+     to NorthWestGravity anyway.  */
+  flags |= USSize;
+  if (f->win_gravity == 3 || f->win_gravity == 9)
+    flags |= XNegative;
+  if (f->win_gravity == 6 || f->win_gravity == 9)
+    flags |= YNegative;
+  flags |= USPosition;
+
+  xg_wm_set_size_hint (f, flags, true);
+
+#ifndef HAVE_PGTK
+  gdk_window_move_resize (gwin, x, y, outer_width, outer_height);
+  if (FRAME_PARENT_FRAME (f))
+    {
+      /* Record the dimensions for GTK to remember after remapping.  */
+      gtk_window_resize (GTK_WINDOW (gwin), outer_width, outer_height);
+      /* Resize all inner widgets and Cairo surface right away so the
+	 next redisplay drawing isn't clipped to the old size.  */
+      GtkAllocation alloc = {0, 0, outer_width, outer_height};
+      gtk_widget_size_allocate (FRAME_GTK_OUTER_WIDGET (f), &alloc);
+#ifdef USE_CAIRO
+      x_cr_update_surface_desired_size (f, width, height);
+#endif
+    }
+#else
+  if (FRAME_GTK_OUTER_WIDGET (f))
+    gdk_window_move_resize (gwin, x, y, outer_width, outer_height);
+  else				/* PGTK child frame.  */
+    gtk_widget_set_size_request (FRAME_GTK_WIDGET (f),
+				 outer_width, outer_height);
+#endif
+
+  SET_FRAME_GARBAGED (f);
+  cancel_mouse_face (f);
+
+  /* For child frames, don't wait for events — that would flush the X
+     buffer and might show outdated contents in the frame.  Same for
+     invisible frames: this way is faster and x_make_frame_visible will
+     wait for event anyway.  */
+  if (FRAME_VISIBLE_P (f) && !FRAME_PARENT_FRAME (f))
+    {
+      /* Must call this to flush out events */
+      (void)gtk_events_pending ();
+      gdk_flush ();
+#ifndef HAVE_PGTK
+      x_wait_for_event (f, ConfigureNotify);
+#endif
+    }
+  else
+    adjust_frame_size (f, FRAME_PIXEL_TO_TEXT_WIDTH (f, width),
+		       FRAME_PIXEL_TO_TEXT_HEIGHT (f, height),
+		       5, 0, Qxg_frame_set_char_size);
+}
 
 #ifndef HAVE_PGTK
 /* Convert an X Window WSESC on display DPY to its corresponding GtkWidget.
@@ -1449,6 +1458,51 @@ xg_set_widget_bg (struct frame *f, GtkWidget *w, unsigned long pixel)
   gtk_widget_modify_bg (FRAME_GTK_WIDGET (f), GTK_STATE_NORMAL, &bg);
 #endif
 }
+
+/* Apply dark mode preference to GTK window decorations.  */
+
+#if defined HAVE_PGTK && defined HAVE_GSETTINGS
+void
+xg_set_gtk_theme_dark_mode (bool dark_mode_p, GtkSettings *settings)
+{
+  g_object_set (settings, "gtk-application-prefer-dark-theme",
+                dark_mode_p ? TRUE : FALSE, NULL);
+}
+
+/* Update all frames' dark mode based on system setting.  */
+
+void
+xg_update_dark_mode_for_all_displays (bool dark_mode_p)
+{
+   struct pgtk_display_info *dpyinfo;
+   for (dpyinfo = x_display_list; dpyinfo; dpyinfo = dpyinfo->next)
+     {
+       GdkScreen *screen
+	 = gdk_display_get_default_screen (dpyinfo->gdpy);
+       GtkSettings *settings
+	 = gtk_settings_get_for_screen (screen);
+       xg_set_gtk_theme_dark_mode (dark_mode_p, settings);
+     }
+
+   {
+     struct input_event inev;
+     EVENT_INIT (inev);
+     inev.kind = TOOLKIT_THEME_CHANGED_EVENT;
+     inev.arg = dark_mode_p ? Qdark : Qlight;
+     kbd_buffer_store_event (&inev);
+   }
+}
+
+/* Set initial dark mode for a new frame (called during frame
+ * creation).  */
+
+void
+xg_set_initial_dark_mode (struct frame *f)
+{
+  bool dark_mode_p = xg_get_system_dark_mode ();
+  xg_update_dark_mode_for_all_displays (dark_mode_p);
+}
+#endif	/* HAVE_PGTK && HAVE_GSETTINGS */
 
 /* Callback called when the gtk theme changes.
    We notify lisp code so it can fix faces used for region for example.  */
@@ -1769,6 +1823,10 @@ xg_create_frame_widgets (struct frame *f)
       }
   }
 
+#if defined HAVE_PGTK && defined HAVE_GSETTINGS
+  xg_set_initial_dark_mode (f);
+#endif
+
   unblock_input ();
 
   return 1;
@@ -1851,10 +1909,6 @@ xg_create_frame_outer_widgets (struct frame *f)
   f->output_data.xp->ttip_widget = 0;
   f->output_data.xp->ttip_lbl = 0;
   f->output_data.xp->ttip_window = 0;
-#ifndef HAVE_PGTK
-  gtk_widget_set_tooltip_text (wtop, "Dummy text");
-  g_signal_connect (wtop, "query-tooltip", G_CALLBACK (qttip_cb), f);
-#endif
 
   {
     GdkScreen *screen = gtk_widget_get_screen (wtop);
@@ -1872,9 +1926,13 @@ xg_create_frame_outer_widgets (struct frame *f)
       }
   }
 
+#ifdef HAVE_GSETTINGS
+  xg_set_initial_dark_mode (f);
+#endif
+
   unblock_input ();
 }
-#endif
+#endif	/* HAVE_PGTK */
 
 void
 xg_free_frame_widgets (struct frame *f)
@@ -1991,28 +2049,33 @@ xg_wm_set_size_hint (struct frame *f, long int flags, bool user_position)
 
   /* These currently have a one to one mapping with the X values, but I
      don't think we should rely on that.  */
-  hint_flags |= GDK_HINT_WIN_GRAVITY;
-  size_hints.win_gravity = 0;
-  if (win_gravity == NorthWestGravity)
+  if (FRAME_PARENT_FRAME (f))
+    {
+      hint_flags |= GDK_HINT_WIN_GRAVITY;
+      size_hints.win_gravity = 0;
+      if (win_gravity == NorthWestGravity)
+	size_hints.win_gravity = GDK_GRAVITY_NORTH_WEST;
+      else if (win_gravity == NorthGravity)
+	size_hints.win_gravity = GDK_GRAVITY_NORTH;
+      else if (win_gravity == NorthEastGravity)
+	size_hints.win_gravity = GDK_GRAVITY_NORTH_EAST;
+      else if (win_gravity == WestGravity)
+	size_hints.win_gravity = GDK_GRAVITY_WEST;
+      else if (win_gravity == CenterGravity)
+	size_hints.win_gravity = GDK_GRAVITY_CENTER;
+      else if (win_gravity == EastGravity)
+	size_hints.win_gravity = GDK_GRAVITY_EAST;
+      else if (win_gravity == SouthWestGravity)
+	size_hints.win_gravity = GDK_GRAVITY_SOUTH_WEST;
+      else if (win_gravity == SouthGravity)
+	size_hints.win_gravity = GDK_GRAVITY_SOUTH;
+      else if (win_gravity == SouthEastGravity)
+	size_hints.win_gravity = GDK_GRAVITY_SOUTH_EAST;
+      else if (win_gravity == StaticGravity)
+	size_hints.win_gravity = GDK_GRAVITY_STATIC;
+    }
+  else
     size_hints.win_gravity = GDK_GRAVITY_NORTH_WEST;
-  else if (win_gravity == NorthGravity)
-    size_hints.win_gravity = GDK_GRAVITY_NORTH;
-  else if (win_gravity == NorthEastGravity)
-    size_hints.win_gravity = GDK_GRAVITY_NORTH_EAST;
-  else if (win_gravity == WestGravity)
-    size_hints.win_gravity = GDK_GRAVITY_WEST;
-  else if (win_gravity == CenterGravity)
-    size_hints.win_gravity = GDK_GRAVITY_CENTER;
-  else if (win_gravity == EastGravity)
-    size_hints.win_gravity = GDK_GRAVITY_EAST;
-  else if (win_gravity == SouthWestGravity)
-    size_hints.win_gravity = GDK_GRAVITY_SOUTH_WEST;
-  else if (win_gravity == SouthGravity)
-    size_hints.win_gravity = GDK_GRAVITY_SOUTH;
-  else if (win_gravity == SouthEastGravity)
-    size_hints.win_gravity = GDK_GRAVITY_SOUTH_EAST;
-  else if (win_gravity == StaticGravity)
-    size_hints.win_gravity = GDK_GRAVITY_STATIC;
 
   if (flags & PPosition)
     hint_flags |= GDK_HINT_POS;
@@ -2844,10 +2907,11 @@ xg_font_filter (const PangoFontFamily *family,
    `FAMILY [VALUE1 VALUE2] SIZE'
 
    This can be parsed using font_parse_fcname in font.c.
-   DEFAULT_NAME, if non-zero, is the default font name.  */
+   DEFAULT_NAME, if non-null, is the default font name;
+   it might be updated in place.  */
 
 Lisp_Object
-xg_get_font (struct frame *f, const char *default_name)
+xg_get_font (struct frame *f, char *default_name)
 {
   GtkWidget *w;
   int done = 0;

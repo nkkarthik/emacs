@@ -1,6 +1,6 @@
 /* NeXT/Open/GNUstep / macOS communication module.      -*- coding: utf-8 -*-
 
-Copyright (C) 1989, 1993-1994, 2005-2006, 2008-2025 Free Software
+Copyright (C) 1989, 1993-1994, 2005-2006, 2008-2026 Free Software
 Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -71,6 +71,12 @@ GNUstep port and post-20 update by Adrian Robert (arobert@cogsci.ucsd.edu)
 #include "macfont.h"
 #include <Carbon/Carbon.h>
 #include <IOSurface/IOSurface.h>
+/* ApplicationServices provides the macOS accessibility Zoom API
+   UAZoomEnabled and UAZoomChangeFocus (UniversalAccess framework).
+   Carbon.h already pulls in ApplicationServices on most SDK versions,
+   but the explicit import makes the dependency visible and guards
+   against SDK changes.  */
+#import <ApplicationServices/ApplicationServices.h>
 #endif
 
 static EmacsMenu *dockMenu;
@@ -591,7 +597,6 @@ ns_init_locale (void)
   setenv ("LANG", lang, 1);
 }
 
-
 void
 ns_release_object (void *obj)
 /* --------------------------------------------------------------------------
@@ -1081,6 +1086,126 @@ ns_update_begin (struct frame *f)
   [view lockFocus];
 }
 
+/* --------------------------------------------------------------------------
+   macOS Accessibility Zoom Support
+   -------------------------------------------------------------------------- */
+#ifdef NS_IMPL_COCOA
+
+static BOOL ns_is_UAZoomEnabled = NO;
+static unsigned long ns_UAZoomEnabled_last_called_time_ns = 0;
+static const unsigned long NS_UAZOOMENABLED_CACHE_INTERVAL_NS =
+  (unsigned long)(500 * NSEC_PER_MSEC); /* 500ms.  */
+static NSTimeInterval NS_UAZOOMENABLED_DEFER_INTERVAL_SECS = 0.2; /* 200ms.  */
+static NSTimer *ns_deferred_UAZoomChangeFocus_timer = nil;
+
+static BOOL
+ns_ua_zoom_enabled_p (void)
+/* --------------------------------------------------------------------------
+   Return the cached result of UAZoomEnabled.  Refresh the cache every
+   NS_UAZOOMENABLED_CACHE_INTERVAL_NS nanoseconds.
+
+   We cache the result to avoid the macOS Mach IPC Accessibility Server
+   round trip cost on every Emacs cursor update.  Since enabling Zoom
+   requires an explicit user UI action that takes real user time, the
+   cache TTL should be invisible to the user.
+
+   Use clock_gettime_nsec_np not CFAbsoluteTimeGetCurrent which depends
+   on the wall clock which can be reset by the user or by NTP.
+
+   Main-thread-only and called from ns_update_end, below.
+   -------------------------------------------------------------------------- */
+{
+  /* User-space equivalent to mach_absolute_time.  */
+  unsigned long now_ns = clock_gettime_nsec_np (CLOCK_UPTIME_RAW);
+  if (now_ns - ns_UAZoomEnabled_last_called_time_ns
+      > NS_UAZOOMENABLED_CACHE_INTERVAL_NS)
+    {
+      ns_is_UAZoomEnabled = UAZoomEnabled ();
+      ns_UAZoomEnabled_last_called_time_ns = now_ns;
+    }
+  return ns_is_UAZoomEnabled;
+}
+
+static inline CGRect
+ns_cg_rect_flip_y (CGRect r)
+/* --------------------------------------------------------------------------
+   Convert a CGRect from Cocoa screen coordinates (origin at bottom-left
+   of the primary display) to CoreGraphics coordinates (origin at
+   top-left of the primary display).  CoreGraphics defines its
+   coordinate origin at the top-left corner of the primary display and
+   all screens share this global coordinate space, so the flip always
+   uses the primary display height regardless of which screen R is on.
+   -------------------------------------------------------------------------- */
+{
+  CGDirectDisplayID mainID = CGMainDisplayID ();
+  if (mainID == kCGNullDirectDisplay)
+    return r;
+  CGFloat primaryH = CGDisplayBounds (mainID).size.height;
+  if (primaryH <= 0)
+    return r;
+  r.origin.y = primaryH - r.origin.y - r.size.height;
+  return r;
+}
+
+/* Cache cursor rects to call UAZoomChangeFocus only when the cursor
+   position has changed, not merely when the cursor is blinking.
+   See ns_draw_window_cursor and ns_update_end.  */
+static NSRect ns_UAZoom_cursor_rect_new;
+static NSRect ns_UAZoom_cursor_rect_old;
+
+/* Track Zoom state per display cycle.  Update the macOS Zoom cursor
+   position when Zoom transitions to enabled.  */
+static BOOL ns_update_was_UAZoomEnabled = NO;
+
+static void
+ns_UAZoomChangeFocus (EmacsView *view, BOOL force)
+/* --------------------------------------------------------------------------
+   Advise macOS Accessibility Zoom UAZoomChangeFocus of a potentially
+   new cursor position.  Force an updated position when Zoom transitions
+   to enabled, or when the frame gets focus.
+   -------------------------------------------------------------------------- */
+{
+  if (ns_ua_zoom_enabled_p ())
+    {
+      force = force || !ns_update_was_UAZoomEnabled;
+      ns_update_was_UAZoomEnabled = YES;
+      if (NSIsEmptyRect (ns_UAZoom_cursor_rect_new))
+	return;
+      if (force || !NSEqualRects (ns_UAZoom_cursor_rect_new,
+				  ns_UAZoom_cursor_rect_old))
+	{
+	  ns_UAZoom_cursor_rect_old = ns_UAZoom_cursor_rect_new;
+	  NSRect windowRect = [view convertRect:ns_UAZoom_cursor_rect_new
+					 toView:nil];
+	  NSRect screenRect = [[view window] convertRectToScreen:windowRect];
+	  CGRect cgRect = ns_cg_rect_flip_y (NSRectToCGRect (screenRect));
+	  /* Some versions of macOS can ignore tiny rects, so we
+	     slightly expand a tiny one.  Since we care mostly about its
+	     origin, this should be innocuous.  */
+	  cgRect.size.width = MAX (cgRect.size.width, 6);
+	  cgRect.size.height = MAX (cgRect.size.height, 10);
+	  if (force)
+	    {
+	      /* UAZoomChangeFocus needs old and new cursor positions to
+		 be different, and also it sometimes needs a kick.  In
+		 both cases, we fake a cursor move followed by the real
+		 cursor move.  */
+	      CGRect cgRectJiggle = CGRectOffset (cgRect, 1.0, 1.0);
+	      if (UAZoomChangeFocus (&cgRectJiggle, NULL,
+				     kUAZoomFocusTypeInsertionPoint))
+		NSLog (@"UAZoomChangeFocus jiggle failed");
+	    }
+	  if (UAZoomChangeFocus (&cgRect, NULL,
+				 kUAZoomFocusTypeInsertionPoint))
+	    NSLog (@"UAZoomChangeFocus failed");
+	  NSAccessibilityPostNotification
+	    (view, NSAccessibilityFocusedUIElementChangedNotification);
+	}
+    }
+  else
+    ns_update_was_UAZoomEnabled = NO;
+}
+#endif /* NS_IMPL_COCOA */
 
 static void
 ns_update_end (struct frame *f)
@@ -1101,6 +1226,10 @@ ns_update_end (struct frame *f)
   [view unlockFocus];
 #if defined (NS_IMPL_GNUSTEP) || MAC_OS_X_VERSION_MIN_REQUIRED < 101400
   [[view window] flushWindow];
+#endif
+
+#ifdef NS_IMPL_COCOA
+  ns_UAZoomChangeFocus (view, false);
 #endif
 
   unblock_input ();
@@ -1221,7 +1350,7 @@ ns_unfocus (struct frame *f)
     {
       nestCount = 0;
       isAttached = false;
-#ifdef NS_IMPL_GNUSTEP
+#if NS_IMPL_GNUSTEP && !HAVE_DECL_NSIMAGENAMECAUTION
       // GNUstep doesn't provide named images.  This was reported in
       // 2011, see https://savannah.gnu.org/bugs/?33396
       //
@@ -1637,6 +1766,7 @@ ns_free_frame_resources (struct frame *f)
 
   [[view window] close];
   [view removeFromSuperview];
+  [view release];
 
   xfree (f->output_data.ns);
   f->output_data.ns = NULL;
@@ -1676,27 +1806,17 @@ ns_destroy_window (struct frame *f)
   ns_window_num--;
 }
 
-
-void
-ns_set_offset (struct frame *f, int xoff, int yoff, int change_grav)
-/* --------------------------------------------------------------------------
-     External: Position the window
-   -------------------------------------------------------------------------- */
+static NSPoint
+compute_offset (struct frame *f, NSView *view, int xoff, int yoff)
 {
-  NSView *view = FRAME_NS_VIEW (f);
-  NSRect windowFrame = [[view window] frame];
-  NSPoint topLeft;
-
-  NSTRACE ("ns_set_offset");
-
-  block_input ();
-
   /* If there is no parent frame then just convert to screen
      coordinates, UNLESS we have negative values, in which case I
      think it's best to position from the bottom and right of the
      current screen rather than the main screen or whole display.  */
 
   NSRect parentRect = ns_parent_window_rect (f);
+  NSRect windowFrame = [[view window] frame];
+  NSPoint topLeft;
 
   if (f->size_hint_flags & XNegative)
     topLeft.x = NSMaxX (parentRect) - NSWidth (windowFrame) + xoff;
@@ -1721,13 +1841,31 @@ ns_set_offset (struct frame *f, int xoff, int yoff, int change_grav)
     topLeft.x = 100;
 #endif
 
+  return topLeft;
+}
+
+void
+ns_set_offset (struct frame *f, int xoff, int yoff, int change_grav)
+/* --------------------------------------------------------------------------
+     External: Position the window
+   -------------------------------------------------------------------------- */
+{
+  NSView *view = FRAME_NS_VIEW (f);
+
+  NSTRACE ("ns_set_offset");
+
+  if (view == nil)
+    return;
+
+  block_input ();
+
+  NSPoint topLeft = compute_offset (f, view, xoff, yoff);
   NSTRACE_POINT ("setFrameTopLeftPoint", topLeft);
   [[view window] setFrameTopLeftPoint:topLeft];
   f->size_hint_flags &= ~(XNegative|YNegative);
 
   unblock_input ();
 }
-
 
 static void
 ns_set_window_size (struct frame *f, bool change_gravity,
@@ -1768,6 +1906,47 @@ ns_set_window_size (struct frame *f, bool change_gravity,
   change_frame_size (f, width, height, false, NO, false);
 
   [window setFrame:frameRect display:NO];
+
+  unblock_input ();
+}
+
+static void
+ns_set_window_size_and_position (struct frame *f,
+				 int width, int height)
+/* --------------------------------------------------------------------------
+   Adjust window pixelwise size and position in one operation.
+   -------------------------------------------------------------------------- */
+{
+  EmacsView *view = FRAME_NS_VIEW (f);
+  NSWindow *window = [view window];
+
+  NSTRACE ("ns_set_window_size_and_position");
+
+  if (view == nil)
+    return;
+
+  block_input ();
+
+  /* Both window frame origin, and the rect that setFrame accepts are
+     anchored to the bottom-left corner of the window.  */
+  NSPoint topLeft = compute_offset (f, view, f->left_pos, f->top_pos);
+  NSPoint bottomLeft = NSMakePoint(topLeft.x,
+				   /* text-area pixels + decorations. */
+				   topLeft.y - (height
+						+ FRAME_NS_TITLEBAR_HEIGHT(f)
+						+ FRAME_TOOLBAR_HEIGHT(f)));
+  NSRect frameRect = [window frameRectForContentRect:NSMakeRect (bottomLeft.x,
+								 bottomLeft.y,
+								 width,
+								 height)];
+  if (f->output_data.ns->zooming)
+    f->output_data.ns->zooming = 0;
+  /* Usually it seems safe to delay changing the frame size, but when a
+     series of actions are taken with no redisplay between them then we
+     can end up using old values so don't delay here.  */
+  change_frame_size (f, width, height, false, NO, false);
+  [window setFrame:frameRect display:NO];
+  f->size_hint_flags &= ~(XNegative|YNegative);
 
   unblock_input ();
 }
@@ -3183,6 +3362,16 @@ ns_draw_window_cursor (struct window *w, struct glyph_row *glyph_row,
   /* Prevent the cursor from being drawn outside the text area.  */
   r = NSIntersectionRect (r, ns_row_rect (w, glyph_row, TEXT_AREA));
 
+#ifdef NS_IMPL_COCOA
+  /* Cache the cursor rect for macOS Accessibility Zoom integration (see
+     ns_update_end).  Only store the rect for the active cursor ---
+     inactive windows must not overwrite the value because redisplay may
+     draw multiple windows per frame and the drawing order is not
+     guaranteed.  */
+  if (active_p)
+    ns_UAZoom_cursor_rect_new = r;
+#endif
+
   ns_focus (f, NULL, 0);
 
   NSGraphicsContext *ctx = [NSGraphicsContext currentContext];
@@ -3907,7 +4096,7 @@ ns_maybe_dumpglyphs_background (struct glyph_string *s, char force_p)
 	  struct ns_display_info *dpyinfo = FRAME_DISPLAY_INFO (s->f);
 #ifdef NS_IMPL_COCOA
 	  /* On cocoa emacs the stipple is stored as a mask CGImage.
-	     First we want to clear the background with the bg colour */
+	     First we want to clear the background with the bg color.  */
 	  [[NSColor colorWithUnsignedLong:face->background] set];
 	  r = NSMakeRect (s->x, s->y + box_line_width,
 			  s->background_width,
@@ -3928,7 +4117,7 @@ ns_maybe_dumpglyphs_background (struct glyph_string *s, char force_p)
 	  CGContextClipToRect (context, r);
 	  CGContextScaleCTM (context, 1, -1);
 
-	  /* Stamp the foreground colour using the stipple mask */
+	  /* Stamp the foreground color using the stipple mask */
 	  [[NSColor colorWithUnsignedLong:face->foreground] set];
 	  CGRect imageSize = CGRectMake (0, 0, CGImageGetWidth (mask),
 					 CGImageGetHeight (mask));
@@ -5016,18 +5205,14 @@ ns_select_1 (int nfds, fd_set *readfds, fd_set *writefds,
       if (writefds && FD_ISSET(k, writefds)) ++nr;
     }
 
-  /* emacs -nw doesn't have an NSApp, so we're done.  */
-  if (NSApp == nil)
-    return thread_select (pselect, nfds, readfds, writefds, exceptfds,
-			  timeout, sigmask);
-
-  if (![NSThread isMainThread]
+  if (NSApp == nil
+      || ![NSThread isMainThread]
       || (timeout && timeout->tv_sec == 0 && timeout->tv_nsec == 0))
-    thread_select (pselect, nfds, readfds, writefds,
-		   exceptfds, timeout, sigmask);
+    return thread_select (pselect, nfds, readfds, writefds,
+			  exceptfds, timeout, sigmask);
   else
     {
-      struct timespec t = {0, 0};
+      struct timespec t = {0, 1};
       thread_select (pselect, 0, NULL, NULL, NULL, &t, sigmask);
     }
 
@@ -5720,6 +5905,7 @@ ns_create_terminal (struct ns_display_info *dpyinfo)
   terminal->fullscreen_hook = ns_fullscreen_hook;
   terminal->iconify_frame_hook = ns_iconify_frame;
   terminal->set_window_size_hook = ns_set_window_size;
+  terminal->set_window_size_and_position_hook = ns_set_window_size_and_position;
   terminal->set_frame_offset_hook = ns_set_offset;
   terminal->set_frame_alpha_hook = ns_set_frame_alpha;
   terminal->set_new_font_hook = ns_new_font;
@@ -5791,6 +5977,15 @@ ns_term_init (Lisp_Object display_name)
   ns_pending_service_names = [[NSMutableArray alloc] init];
   ns_pending_service_args = [[NSMutableArray alloc] init];
 
+#if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED >= 260000
+  /* Disable problematic event processing on macOS 26 (Tahoe) to avoid
+     scrolling lag and input handling issues.  These are undocumented
+     options as of macOS 26.0.  */
+  [NSUserDefaults.standardUserDefaults
+      registerDefaults:@{@"NSEventConcurrentProcessingEnabled" : @"NO",
+        @"NSApplicationUpdateCycleEnabled" : @"NO"}];
+#endif
+
   /* Start app and create the main menu, window, view.
      Needs to be here because ns_initialize_display_info () uses AppKit classes.
      The view will then ask the NSApp to stop and return to Emacs.  */
@@ -5843,53 +6038,6 @@ ns_term_init (Lisp_Object display_name)
                  make_float (10.0), make_float (6.0), YES, NO);
       ns_antialias_threshold = NILP (tmp) ? 10.0 : extract_float (tmp);
     }
-
-  NSTRACE_MSG ("Colors");
-
-  {
-    NSColorList *cl = [NSColorList colorListNamed: @"Emacs"];
-
-    /* There are 752 colors defined in rgb.txt.  */
-    if ( cl == nil || [[cl allKeys] count] < 752)
-      {
-        Lisp_Object color_file, color_map, color, name;
-        unsigned long c;
-
-        color_file = Fexpand_file_name (build_string ("rgb.txt"),
-                         Fsymbol_value (intern ("data-directory")));
-
-        color_map = Fx_load_color_file (color_file);
-        if (NILP (color_map))
-          fatal ("Could not read %s.\n", SDATA (color_file));
-
-        cl = [[NSColorList alloc] initWithName: @"Emacs"];
-        for ( ; CONSP (color_map); color_map = XCDR (color_map))
-          {
-            color = XCAR (color_map);
-            name = XCAR (color);
-            c = XFIXNUM (XCDR (color));
-            c |= 0xFF000000;
-            [cl setColor:
-                  [NSColor colorWithUnsignedLong:c]
-                  forKey: [NSString stringWithLispString: name]];
-          }
-
-        /* FIXME: Report any errors writing the color file below.  */
-#if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101100
-#if MAC_OS_X_VERSION_MIN_REQUIRED < 101100
-        if ([cl respondsToSelector:@selector(writeToURL:error:)])
-#endif
-          [cl writeToURL:nil error:nil];
-#if MAC_OS_X_VERSION_MIN_REQUIRED < 101100
-        else
-#endif
-#endif /* MAC_OS_X_VERSION_MAX_ALLOWED >= 101100 */
-#if MAC_OS_X_VERSION_MIN_REQUIRED < 101100 \
-  || defined (NS_IMPL_GNUSTEP)
-          [cl writeToFile: nil];
-#endif
-      }
-  }
 
   NSTRACE_MSG ("Versions");
 
@@ -6328,6 +6476,20 @@ ns_term_shutdown (int sig)
 #endif
 
 #ifdef NS_IMPL_COCOA
+  /* Sleep event notification.  */
+  [[[NSWorkspace sharedWorkspace] notificationCenter]
+    addObserver: self
+       selector:@selector(systemWillSleep:)
+	   name: NSWorkspaceWillSleepNotification
+	 object: nil];
+  [[[NSWorkspace sharedWorkspace] notificationCenter]
+    addObserver: self
+       selector: @selector(systemDidWake:)
+	   name: NSWorkspaceDidWakeNotification
+	 object: nil];
+#endif
+
+#ifdef NS_IMPL_COCOA
   /* Some functions/methods in CoreFoundation/Foundation increase the
      maximum number of open files for the process in their first call.
      We make dummy calls to them and then reduce the resource limit
@@ -6365,6 +6527,31 @@ ns_term_shutdown (int sig)
 #endif
 }
 
+/* Sleep event notification.  */
+
+- (void) systemWillSleep:(NSNotification *)notification
+{
+#ifdef NS_IMPL_COCOA
+  NSTRACE ("[EmacsApp systemWillSleep:]");
+  struct input_event ie;
+  EVENT_INIT (ie);
+  ie.kind = SLEEP_EVENT;
+  ie.arg = list1 (Qpre_sleep);
+  kbd_buffer_store_event (&ie);
+#endif
+}
+
+- (void) systemDidWake:(NSNotification *)notification
+{
+#ifdef NS_IMPL_COCOA
+  NSTRACE ("[EmacsApp systemDidWake:]");
+  struct input_event ie;
+  EVENT_INIT (ie);
+  ie.kind = SLEEP_EVENT;
+  ie.arg = list1 (Qpost_wake);
+  kbd_buffer_store_event (&ie);
+#endif
+}
 
 /* Termination sequences:
     C-x C-c:
@@ -6818,6 +7005,11 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
 
 @implementation EmacsView
 
+- (void)windowDidEndLiveResize:(NSNotification *)notification
+{
+  [self updateFramePosition];
+}
+
 /* Needed to inform when window closed from lisp.  */
 - (void) setWindowClosing: (BOOL)closing
 {
@@ -6839,6 +7031,14 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
 
   if (fs_state == FULLSCREEN_BOTH)
     [nonfs_window release];
+
+#if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+  /* Release layer and menu */
+  EmacsLayer *layer = (EmacsLayer *)[self layer];
+  [layer release];
+#endif
+
+  [[self menu] release];
   [super dealloc];
 }
 
@@ -6994,8 +7194,8 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
     [self addCursorRect: visible cursor: currentCursor];
 
 #if defined (NS_IMPL_GNUSTEP) || MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
-  if ([currentCursor respondsToSelector: @selector(setOnMouseEntered)])
+#if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
+  if ([currentCursor respondsToSelector: @selector(setOnMouseEntered:)])
 #endif
     [currentCursor setOnMouseEntered: YES];
 #endif
@@ -7226,6 +7426,12 @@ ns_create_font_panel_buttons (id target, SEL select, SEL cancel_action)
 			  actualRange: (nullable NSRangePointer) actualRange
 {
   return [self firstRectForCharacterRange: range];
+}
+
+- (NSRect)accessibilityFrame
+{
+  EmacsView *view = FRAME_NS_VIEW (emacsframe);
+  return [[view window] convertRectToScreen: ns_UAZoom_cursor_rect_new];
 }
 
 #endif /* NS_IMPL_COCOA */
@@ -7970,6 +8176,37 @@ ns_in_echo_area (void)
 }
 
 
+- (void)updateFramePosition
+{
+  NSWindow *win = [self window];
+  NSRect r = [win frame];
+  NSArray *screens = [NSScreen screens];
+  NSScreen *screen = [screens objectAtIndex: 0];
+
+  if (!emacsframe->output_data.ns)
+    return;
+
+  if (screen != nil)
+    {
+      emacsframe->left_pos = (NSMinX (r)
+                              - NS_PARENT_WINDOW_LEFT_POS (emacsframe));
+      emacsframe->top_pos = (NS_PARENT_WINDOW_TOP_POS (emacsframe)
+                             - NSMaxY (r));
+
+      if (emacs_event)
+        {
+          struct input_event ie;
+          EVENT_INIT (ie);
+          ie.kind = MOVE_FRAME_EVENT;
+          XSETFRAME (ie.frame_or_window, emacsframe);
+          XSETINT (ie.x, emacsframe->left_pos);
+          XSETINT (ie.y, emacsframe->top_pos);
+          kbd_buffer_store_event (&ie);
+        }
+    }
+}
+
+
 - (NSSize)windowWillResize: (NSWindow *)sender toSize: (NSSize)frameSize
 /* Normalize frame to gridded text size.  */
 {
@@ -8151,12 +8388,72 @@ ns_in_echo_area (void)
   ns_frame_rehighlight (emacsframe);
   [self adjustEmacsFrameRect];
 
+#ifdef NS_IMPL_COCOA
+  EmacsView *view = FRAME_NS_VIEW (emacsframe);
+  /* Make sure we have focus and the timer isn't already scheduled.  */
+  if (self.window.firstResponder == view
+      && !ns_deferred_UAZoomChangeFocus_timer)
+    {
+      /* Calls to ns_UAZoomChangeFocus are synchronous.  We defer the
+	 call to give macOS time to finish window compositing or the
+	 calls can be silently ignored by the Zoom daemon and with no
+	 errors reported.  This also helps ensure ns_draw_window_cursor
+	 has populated ns_UAZoom_cursor_rect_new.  The 200 ms delay was
+	 chosen as a balance between macOS headroom and user
+	 perception.  */
+      ns_deferred_UAZoomChangeFocus_timer
+	= [[NSTimer
+	     scheduledTimerWithTimeInterval:
+	       NS_UAZOOMENABLED_DEFER_INTERVAL_SECS
+				     target: self
+				   selector:
+	       @selector (deferred_UAZoomChangeFocus_handler:)
+				   userInfo: 0
+				    repeats: NO]
+	    retain];
+    }
+#endif
+
   event.kind = FOCUS_IN_EVENT;
   XSETFRAME (event.frame_or_window, emacsframe);
   kbd_buffer_store_event (&event);
   ns_send_appdefined (-1);  // Kick main loop
 }
 
+#ifdef NS_IMPL_COCOA
+static void cancel_ns_deferred_UAZoomChangeFocus_timer ()
+{
+  if (ns_deferred_UAZoomChangeFocus_timer
+      && ns_deferred_UAZoomChangeFocus_timer.valid)
+    {
+      [ns_deferred_UAZoomChangeFocus_timer invalidate];
+      [ns_deferred_UAZoomChangeFocus_timer release];
+    }
+  ns_deferred_UAZoomChangeFocus_timer = nil;
+}
+#endif
+
+- (void)windowWillClose: (NSNotification *)notification
+{
+#ifdef NS_IMPL_COCOA
+  /* Cancel the zoom focus change timer if its window is closed before
+     it runs.  */
+  cancel_ns_deferred_UAZoomChangeFocus_timer ();
+#endif
+}
+
+#ifdef NS_IMPL_COCOA
+- (void)deferred_UAZoomChangeFocus_handler: (NSTimer *)timer
+{
+  /* The frame may be deleted before the timer fires.  */
+  if (FRAME_LIVE_P (emacsframe))
+    {
+      EmacsView *view = FRAME_NS_VIEW (emacsframe);
+      ns_UAZoomChangeFocus (view, true);
+    }
+  cancel_ns_deferred_UAZoomChangeFocus_timer ();
+}
+#endif
 
 - (void)windowDidResignKey: (NSNotification *)notification
 /* cf. x_detect_focus_change(), x_focus_changed(), x_new_focus_frame() */
@@ -8253,6 +8550,13 @@ ns_in_echo_area (void)
 
   FRAME_NS_VIEW (f) = self;
   emacsframe = f;
+
+#ifdef NS_IMPL_COCOA
+  /* macOS Accessibility Zoom Support.  */
+  ns_UAZoom_cursor_rect_new = NSZeroRect;
+  ns_UAZoom_cursor_rect_old = NSZeroRect;
+#endif
+
 #ifdef NS_IMPL_COCOA
   old_title = 0;
   maximizing_resize = NO;
@@ -8304,34 +8608,9 @@ ns_in_echo_area (void)
 
 - (void)windowDidMove: sender
 {
-  NSWindow *win = [self window];
-  NSRect r = [win frame];
-  NSArray *screens = [NSScreen screens];
-  NSScreen *screen = [screens objectAtIndex: 0];
-
   NSTRACE ("[EmacsView windowDidMove:]");
 
-  if (!emacsframe->output_data.ns)
-    return;
-
-  if (screen != nil)
-    {
-      emacsframe->left_pos = (NSMinX (r)
-			      - NS_PARENT_WINDOW_LEFT_POS (emacsframe));
-      emacsframe->top_pos = (NS_PARENT_WINDOW_TOP_POS (emacsframe)
-			     - NSMaxY (r));
-
-      if (emacs_event)
-	{
-	  struct input_event ie;
-	  EVENT_INIT (ie);
-	  ie.kind = MOVE_FRAME_EVENT;
-	  XSETFRAME (ie.frame_or_window, emacsframe);
-	  XSETINT (ie.x, emacsframe->left_pos);
-	  XSETINT (ie.y, emacsframe->top_pos);
-	  kbd_buffer_store_event (&ie);
-	}
-    }
+  [self updateFramePosition];
 }
 
 
@@ -9324,6 +9603,7 @@ ns_in_echo_area (void)
   XSETFRAME (ie.frame_or_window, emacsframe);
 
   kbd_buffer_store_event (&ie);
+  ns_send_appdefined (-1);
   return YES;
 }
 
@@ -9543,6 +9823,14 @@ ns_in_echo_area (void)
       if ([self respondsToSelector:@selector(setTabbingMode:)])
         [self setTabbingMode:NSWindowTabbingModeDisallowed];
 #endif
+      /* Always show the toolbar below the window title.  This is needed
+	 on Mac OS 11+ where the toolbar style is decided by the system
+	 (which is unpredictable) and the newfangled "compact" toolbar
+	 may be chosen (which is undesirable).  */
+#if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED >= 110000
+      if ([self respondsToSelector:@selector(setToolbarStyle:)])
+	[self setToolbarStyle: NSWindowToolbarStyleExpanded];
+#endif
     }
 
   return self;
@@ -9588,8 +9876,9 @@ ns_in_echo_area (void)
   NSTRACE ("[EmacsWindow dealloc]");
 
   /* We need to release the toolbar ourselves.  */
-  [self setToolbar: nil];
   [[self toolbar] release];
+  [self setToolbar: nil];
+
 
   /* Also the last button press event .  */
   if (last_drag_event)
@@ -10460,9 +10749,9 @@ nswindow_orderedIndex_sort (id w1, id w2, void *c)
     [self addCursorRect: visible cursor: [NSCursor arrowCursor]];
 
 #if defined (NS_IMPL_GNUSTEP) || MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
+#if defined (NS_IMPL_COCOA) && MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
   if ([[NSCursor arrowCursor] respondsToSelector:
-                                @selector(setOnMouseEntered)])
+                                @selector(setOnMouseEntered:)])
 #endif
     [[NSCursor arrowCursor] setOnMouseEntered: YES];
 #endif
@@ -11300,7 +11589,11 @@ separately for ordinary keys, function keys, and mouse events.
 
 Each SYMBOL is `control', `meta', `alt', `super', `hyper' or `none'.
 If `none', the key is ignored by Emacs and retains its standard meaning.  */);
+#ifdef NS_IMPL_COCOA
   ns_command_modifier = Qsuper;
+#else
+  ns_command_modifier = Qmeta;
+#endif
 
   DEFVAR_LISP ("ns-right-command-modifier", ns_right_command_modifier,
     doc: /* This variable describes the behavior of the right command key.

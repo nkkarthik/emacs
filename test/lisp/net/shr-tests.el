@@ -1,6 +1,6 @@
 ;;; shr-tests.el --- tests for shr.el  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2016-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2016-2026 Free Software Foundation, Inc.
 
 ;; Author: Lars Ingebrigtsen <larsi@gnus.org>
 
@@ -182,6 +182,21 @@ settings, then once more for each (OPTION . VALUE) pair.")
                 (goto-char (or (next-single-property-change (point) 'display)
                                (point-max))))
               (should (equal image-zooms '(original))))))))))
+
+(ert-deftest dom-print-escape ()
+  ;; This is a DOM as parsed by `libxml-parse-xml-region'.
+  (let ((svg-string (concat "<svg width=\"100\" height=\"100\""
+                            " version=\"1.1\" "
+                            "xmlns=\"http://www.w3.org/2000/svg\" "
+                            "xmlns:xlink=\"http://www.w3.org/1999/xlink\"> "
+                            "<text>&amp; &gt;.&lt;</text>"
+                            "</svg>"))
+        (dom '(svg ((width . "100") (height . "100") (version . "1.1") (xmlns . "http://www.w3.org/2000/svg")
+                    (xmlns:xlink . "http://www.w3.org/1999/xlink"))
+                   (text nil "& >.<"))))
+    (with-temp-buffer
+      (shr-dom-print dom)
+      (should (equal svg-string (buffer-string))))))
 
 (require 'shr)
 

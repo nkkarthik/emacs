@@ -1,6 +1,6 @@
 ;;; erc-button.el --- A way of buttonizing certain things in ERC buffers  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1996-2004, 2006-2025 Free Software Foundation, Inc.
+;; Copyright (C) 1996-2004, 2006-2026 Free Software Foundation, Inc.
 
 ;; Author: Mario Lang <mlang@delysid.org>
 ;; Maintainer: Amin Bandali <bandali@gnu.org>, F. Jason Park <jp@neverwas.me>
@@ -857,7 +857,7 @@ non-strings, concatenate leading string members before applying
           (cons (lambda ()
                   (setq string (buffer-substring (point-min)
                                                  (1- (point-max)))))
-                erc-insert-post-hook))
+                (ensure-list erc-insert-post-hook)))
          (erc-button-alist
           `((,(rx "\\[" (group (+ (not "]"))) "]") 0
              erc-button--display-error-with-buttons

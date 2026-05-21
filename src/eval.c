@@ -1,6 +1,6 @@
 /* Evaluator for GNU Emacs Lisp interpreter.
 
-Copyright (C) 1985-1987, 1993-1995, 1999-2025 Free Software Foundation,
+Copyright (C) 1985-1987, 1993-1995, 1999-2026 Free Software Foundation,
 Inc.
 
 This file is part of GNU Emacs.
@@ -285,11 +285,10 @@ call_debugger (Lisp_Object arg)
   specpdl_ref count = SPECPDL_INDEX ();
   Lisp_Object val;
 
-  /* The previous value of 40 is too small now that the debugger
-     prints using cl-prin1 instead of prin1.  Printing lists nested 8
-     deep (which is the value of print-level used in the debugger)
-     currently requires 77 additional frames.  See bug#31919.  */
-  max_ensure_room (100);
+  /* The debugger currently requires 77 additional frames to print lists
+     nested 8 deep (the value of print-level used in the debugger) using
+     cl-prin1 (bug#31919), with a margin to be on the safe side.  */
+  max_ensure_room (200);
 
 #ifdef HAVE_WINDOW_SYSTEM
   if (display_hourglass_p)
@@ -811,7 +810,10 @@ lexbound_p (Lisp_Object symbol)
 
 DEFUN ("default-toplevel-value", Fdefault_toplevel_value, Sdefault_toplevel_value, 1, 1, 0,
        doc: /* Return SYMBOL's toplevel default value.
-"Toplevel" means outside of any let binding.  */)
+"Toplevel" means outside of any let binding.
+Signals `void-variable' if there is no such value, which can
+happen even if `default-boundp' is non-nil.
+Note: In most cases, you'll want to use `default-value' instead.  */)
   (Lisp_Object symbol)
 {
   union specbinding *binding = default_toplevel_binding (symbol);
@@ -825,7 +827,8 @@ DEFUN ("default-toplevel-value", Fdefault_toplevel_value, Sdefault_toplevel_valu
 DEFUN ("set-default-toplevel-value", Fset_default_toplevel_value,
        Sset_default_toplevel_value, 2, 2, 0,
        doc: /* Set SYMBOL's toplevel default value to VALUE.
-"Toplevel" means outside of any let binding.  */)
+"Toplevel" means outside of any let binding.
+Note: In most cases, you'll want to use `set-default' instead.  */)
      (Lisp_Object symbol, Lisp_Object value)
 {
   union specbinding *binding = default_toplevel_binding (symbol);
@@ -1450,7 +1453,7 @@ Both TAG and VALUE are evalled.  */
   if (!NILP (tag))
     for (c = handlerlist; c; c = c->next)
       {
-	if (c->type == CATCHER_ALL)
+	if (c->type == CATCHER_ALL || c->type == CATCHER_ALL_DEBUGGABLE)
           unwind_to_catch (c, NONLOCAL_EXIT_THROW, Fcons (tag, value));
         if (c->type == CATCHER && EQ (c->tag_or_ch, tag))
 	  unwind_to_catch (c, NONLOCAL_EXIT_THROW, value);
@@ -1872,9 +1875,14 @@ probably_quit (void)
   unbind_to (gc_count, Qnil);
 }
 
-DEFUN ("signal", Fsignal, Ssignal, 2, 2, 0,
+DEFUN ("signal", Fsignal, Ssignal, 1, 2, 0,
        doc: /* Signal an error.  Args are ERROR-SYMBOL and associated DATA.
 This function does not return.
+
+When signaling a new error, the DATA argument is mandatory.
+When re-signaling an error to propagate it to further handlers,
+DATA has to be omitted and the first argument has to be the whole
+error descriptor.
 
 When `noninteractive' is non-nil (in particular, in batch mode), an
 unhandled error calls `kill-emacs', which terminates the Emacs
@@ -1943,11 +1951,14 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool continuable)
       /* FIXME: 'handler-bind' makes `signal-hook-function' obsolete?  */
       /* FIXME: Here we still "split" the error object
          into its error-symbol and its error-data?  */
-      calln (Vsignal_hook_function, error_symbol, data);
+      calln (Vsignal_hook_function, real_error_symbol,
+	     NILP (data) && CONSP (error) ? XCDR (error) : data);
       unbind_to (count, Qnil);
     }
 
   conditions = Fget (real_error_symbol, Qerror_conditions);
+  if (NILP (conditions))
+    signal_error ("Invalid error symbol", real_error_symbol);
 
   /* Remember from where signal was called.  Skip over the frame for
      `signal' itself.  If a frame for `error' follows, skip that,
@@ -1970,6 +1981,9 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool continuable)
         case CATCHER_ALL:
           clause = Qt;
           break;
+        case CATCHER_ALL_DEBUGGABLE:
+          clause = Qdebug;
+          break;
 	case CATCHER:
 	  continue;
         case CONDITION_CASE:
@@ -1980,7 +1994,9 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool continuable)
 	    if (!NILP (find_handler_clause (h->tag_or_ch, conditions)))
 	      {
 	        specpdl_ref count = SPECPDL_INDEX ();
-	        max_ensure_room (20);
+		/* Add some room in case this is for debugging, as in
+		   call_debugger.  */
+	        max_ensure_room (200);
 	        push_handler (make_fixnum (skip + h->bytecode_dest),
 	                      SKIP_CONDITIONS);
 	        calln (h->val, error);
@@ -2011,6 +2027,7 @@ signal_or_quit (Lisp_Object error_symbol, Lisp_Object data, bool continuable)
 	  || NILP (clause)
 	  /* A `debug' symbol in the handler list disables the normal
 	     suppression of the debugger.  */
+	  || EQ (clause, Qdebug)
 	  || (CONSP (clause) && !NILP (Fmemq (Qdebug, clause)))
 	  /* Special handler that means "print a message and run debugger
 	     if requested".  */
@@ -2588,6 +2605,9 @@ eval_sub (Lisp_Object form)
   /* Declare here, as this array may be accessed by call_debugger near
      the end of this function.  See Bug#21245.  */
   Lisp_Object argvals[8];
+  /* The stack overflow detection probably isn't worth the effort any more
+     but this may be the least bad spot to feed it.  */
+  current_thread->stack_top = argvals;
 
  retry:
 
@@ -3091,6 +3111,21 @@ FUNCTIONP (Lisp_Object object)
     return false;
 }
 
+DEFUN ("debugger-trap", Fdebugger_trap, Sdebugger_trap, 0, 0, "",
+       doc: /* Stop Emacs and hand over control to GDB.
+The Emacs source file src/.gdbinit sets a breakpoint in this function.
+
+This function does nothing.  It is not called by Emacs otherwise, and
+exists so that calling it or invoking it interactively will cause
+GDB to kick in.
+
+For Lisp debugging see `debug', as well as `edebug', in the manual:
+"(elisp) Debugging".  */)
+  (void)
+{
+  return Qnil;
+}
+
 Lisp_Object
 funcall_general (Lisp_Object fun, ptrdiff_t numargs, Lisp_Object *args)
 {
@@ -3424,7 +3459,12 @@ DEFUN ("func-arity", Ffunc_arity, Sfunc_arity, 1, 1, 0,
 FUNCTION must be a function of some kind.
 The returned value is a cons cell (MIN . MAX).  MIN is the minimum number
 of args.  MAX is the maximum number, or the symbol `many', for a
-function with `&rest' args, or `unevalled' for a special form.  */)
+function with `&rest' args, or `unevalled' for a special form.
+
+Note that this function might return inaccurate results in some cases,
+such as with functions defined using `apply-partially', functions
+advised using `advice-add', and functions that determine their arg
+list dynamically.  */)
   (Lisp_Object function)
 {
   Lisp_Object original;
@@ -4617,4 +4657,5 @@ alist of active lexical bindings.  */);
   defsubr (&Sspecial_variable_p);
   DEFSYM (Qfunctionp, "functionp");
   defsubr (&Sfunctionp);
+  defsubr (&Sdebugger_trap);
 }

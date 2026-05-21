@@ -1,6 +1,6 @@
 ;;; erc-stamp.el --- Timestamping for ERC messages  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2002-2004, 2006-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2002-2004, 2006-2026 Free Software Foundation, Inc.
 
 ;; Author: Mario Lang <mlang@delysid.org>
 ;; Maintainer: Amin Bandali <bandali@gnu.org>, F. Jason Park <jp@neverwas.me>
@@ -621,6 +621,7 @@ printed just after each line's text (no alignment)."
       (pcase erc-timestamp-use-align-to
         ((guard erc-stamp--display-margin-mode)
          (let ((s (propertize (substring-no-properties string)
+                              'font-lock-face 'erc-timestamp-face
                               'invisible erc-stamp--invisible-property)))
            (insert " ")
            (put-text-property 0 (length string) 'display

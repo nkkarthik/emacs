@@ -1,6 +1,6 @@
 ;;; files-x.el --- extended file handling commands  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2009-2025 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2026 Free Software Foundation, Inc.
 
 ;; Author: Juri Linkov <juri@jurta.org>
 ;; Maintainer: emacs-devel@gnu.org
@@ -877,7 +877,7 @@ If APPLICATION is nil, `connection-local-default-application' is used."
 (defmacro with-connection-local-variables (&rest body)
   "Apply connection-local variables according to `default-directory'.
 Execute BODY, and unwind connection-local variables."
-  (declare (debug t))
+  (declare (debug t) (indent 0))
   `(with-connection-local-variables-1 (lambda () ,@body)))
 
 ;;;###autoload
