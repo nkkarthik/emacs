@@ -52,7 +52,6 @@ configure:
 	            --with-modules \
 	            --with-json \
 	            --with-tree-sitter \
-	            --with-native-compilation \
 	            --with-sqlite3 \
 	            --prefix=$(EMACS_PREFIX)
 
