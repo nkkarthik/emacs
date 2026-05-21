@@ -103,9 +103,10 @@ brew-bin:
 .PHONY: launch
 launch:
 	mkdir -p $(HOME)/Library/LaunchAgents/
-	cp $(CURDIR)/e.plist $(HOME)/Library/LaunchAgents/
+	cp $(CURDIR)/e.plist $(CURDIR)/ec.plist $(HOME)/Library/LaunchAgents/
 	@echo "🚀 Starting Emacs daemon..."
 	@launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/e.plist 2>/dev/null || true
+	@launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/ec.plist 2>/dev/null || true
 	@launchctl enable gui/$$(id -u)/local.emacs.daemon
 	@sleep 2
 	@echo "✅ Emacs daemon started!"
@@ -114,6 +115,8 @@ launch:
 launchr:
 	launchctl bootout gui/$$(id -u) ~/Library/LaunchAgents/e.plist 2>/dev/null || true
 	launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/e.plist
+	launchctl bootout gui/$$(id -u) ~/Library/LaunchAgents/ec.plist 2>/dev/null || true
+	launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/ec.plist
 
 
 .PHONY: system

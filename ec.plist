@@ -3,20 +3,20 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>em</string>
+    <string>ec</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/k/e/nextstep/Emacs.app/Contents/MacOS/Emacs</string>
-        <string>--fg-daemon</string>
+        <string>/Users/k/e/nextstep/Emacs.app/Contents/MacOS/bin/emacsclient</string>
+        <string>-c</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/tmp/e.out.log</string>
+    <string>/tmp/ec.out.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/e.err.log</string>
+    <string>/tmp/ec.err.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
