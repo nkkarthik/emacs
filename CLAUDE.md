@@ -69,7 +69,9 @@ On each wake:
 1. If the working tree is clean and a pull wasn't just performed, run `git pull --rebase`.
 2. Re-read `* claude` in `e.org`. If a task appeared, pick it up. Otherwise stay silent (the change was unrelated).
 
-Arm the watcher once per session and leave it running. Don't stop it between tasks or while idle — restarting it every cycle is wasted churn and risks missing edits during the gap. Only stop the watcher if the user explicitly asks and gives a reason (e.g. it's misbehaving), or at session end.
+Arm the watcher once per session and leave it running. Don't stop it between tasks or while idle — restarting it every cycle is wasted churn and risks missing edits during the gap.
+
+Never propose stopping the watcher, ask whether to stop it, or offer "stop" as one of multiple choices — the offer itself is a nudge the user will sometimes accept just because it's there. Only stop the watcher when the user *unprompted* says to stop it. When they do, just stop it silently — no confirmation, no follow-up question.
 
 - When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first in the CLAUDE.org.
 - When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`).
