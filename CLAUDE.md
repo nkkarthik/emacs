@@ -59,6 +59,8 @@ Personal files at repo root (do not assume these exist upstream):
 
 Read `* claude` heading in `e.org` as you work in this repo for your goals to work to until reached. Pick the next task in the section, finish it and mark done as DONE in `CLAUDE.org` file under `* done` section. iff the task belongs to any sub agents under a/, it will mentioned to add to a file under that file in a, in that case just add that to `* claude` section in that file and move on to next task.
 
+When `* claude` in `e.org` is empty after finishing a task, stop and wait silently — do not auto-suggest the next task or ask "what's next". The user drives the queue by editing `e.org`; resume only when they add a new task there or tell you to.
+
 - When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first in the CLAUDE.org.
 - When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`).
 - For small, immediately-completed work you can skip the todo step and write straight into `** done`.
