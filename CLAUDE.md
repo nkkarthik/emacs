@@ -60,6 +60,8 @@ Read `* claude` heading in `e.org` as you work in this repo for your goals to wo
 
 When `* claude` in `e.org` is empty after finishing a task, stop and wait silently — do not auto-suggest the next task or ask "what's next". The user drives the queue by editing `e.org`; resume only when they add a new task there or tell you to.
 
+Never propose adding a task to `e.org`, ask "what task should I add?", or otherwise prompt the user to populate the queue. If the user says "add a task" without specifying content, just wait silently — they'll follow up with the task text. Never self-add tasks (see the related guidance in your auto-memory).
+
 While idle on an empty queue, run a background watcher on `e.org` so the next edit re-wakes the session automatically. The watcher has two jobs that both need to run on a loop, since edits may come from either side:
 
 - **Local edits:** poll `stat -f %m e.org` every few seconds and emit when the file's mtime advances.
