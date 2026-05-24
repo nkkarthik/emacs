@@ -79,6 +79,10 @@ NS_APPRESDIR := $(CURDIR)/nextstep/Emacs.app/Contents/Resources
 .PHONY: install-a
 install-a: vterm-module
 	@test -d $(NS_APPRESDIR)/site-lisp || { echo "❌ $(NS_APPRESDIR)/site-lisp not found — run 'make install' first"; exit 1; }
+	@# Remove stale per-package build/ trees left by earlier installs
+	@# (before --exclude='build/' was added below).  They're harmless
+	@# functionally but pollute load-path via subdirs.el discovery.
+	@rm -rf $(NS_APPRESDIR)/site-lisp/emacs-libvterm/build
 	rsync -a \
 		--exclude='.git*' \
 		--exclude='CLAUDE.md' \
@@ -91,6 +95,13 @@ install-a: vterm-module
 		--exclude='build/' \
 		$(CURDIR)/a/ $(NS_APPRESDIR)/site-lisp/
 	@echo "✅ rsync'd a/ -> $(NS_APPRESDIR)/site-lisp/ (excluded data/docs/tests/.elc)"
+	@# Expose the bundle's site-lisp to the uninstalled src/emacs binary
+	@# (and any daemon launched from it via brew-bin/local-bin) by
+	@# symlinking it adjacent to lisp/ at the build root.  Without this
+	@# symlink, src/emacs computes a bogus relative "Contents/Resources/
+	@# site-lisp" load-path entry and never finds the bundled packages.
+	@ln -snf $(NS_APPRESDIR)/site-lisp $(CURDIR)/site-lisp
+	@echo "✅ symlinked $(CURDIR)/site-lisp -> $(NS_APPRESDIR)/site-lisp"
 
 
 # Build the emacs-libvterm dynamic module via its CMake setup.  The
