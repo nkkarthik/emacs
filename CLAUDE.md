@@ -56,7 +56,7 @@ Personal files at repo root (do not assume these exist upstream):
 
 ## Working log in `CLAUDE.org`
 
-Read `* claude` heading in `e.org` as you work in this repo for your goals to work to until reached. Pick the next task in the section, finish it and mark done as DONE in `CLAUDE.org` file under `* done` section. iff the task belongs to any sub agents under a/, it will mentioned to add to a file under that file in a, in that case just add that to `* claude` section in that file and move on to next task.
+Read `* claude` heading in `e.org` as you work in this repo for your goals to work to until reached. Pick the next task in the section, finish it and mark done as DONE in `CLAUDE.org` file under `* done` section. If the task targets a package under `a/<package>/`, do not work on it — delegate per the "Never work on `a/*` directly" section below.
 
 When `* claude` in `e.org` is empty after finishing a task, stop and wait silently — do not auto-suggest the next task or ask "what's next". The user drives the queue by editing `e.org`; resume only when they add a new task there or tell you to.
 
@@ -80,6 +80,19 @@ Never suggest stopping the watcher to the user. Don't propose stopping it, ask w
 - For small, immediately-completed work you can skip the todo step and write straight into `** done`.
 
 Keep entries terse — one line each, newest at the top so the most recent work is what a future session sees first. The log is for future sessions to scan quickly; it is not a substitute for the git history.
+
+## Never work on `a/*` directly
+
+Each package under `a/<package>/` has its own Claude sub-agent that owns it (often with its own `CLAUDE.md`, `TODO.md`, `DONE.md`). This session is the root-repo session and must not touch package internals.
+
+**Hard rule:** do not edit, build, run, byte-compile, or test any file under `a/<package>/`. Not for a typo fix, not for an "obvious" one-liner, not to "just take a look first". This rule is strict — no exceptions, no "I'll just".
+
+If the user asks for work on an `a/<package>/` file:
+1. Open (or create) `a/<package>/CLAUDE.org` and append the task as a one-line entry under `* claude` (create the heading if the file is new).
+2. Tell the user you've queued the task for that package's Claude and stop.
+3. Do not read the package's source to "scope" the work, do not run any build that touches the package, do not preview a diff. Hand-off only.
+
+Build-system glue that *lives in root* but *references* `a/` (e.g. `e.mk` rules that rsync or cmake into a package) is fine to edit — the line is whether the file you're editing lives under `a/<package>/` or not.
 
 ## Git workflow
 
