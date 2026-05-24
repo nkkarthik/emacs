@@ -23,7 +23,7 @@ deps: brew-check
 	$(BREW) install autoconf automake texinfo pkg-config \
 		gnutls libjpeg libpng librsvg libtiff libxpm \
 		ncurses mailutils libxml2 jansson sqlite imagemagick tree-sitter \
-		gcc libgccjit cmake libtool
+		gcc libgccjit cmake libtool libvterm
 
 brew-check:
 	@echo "🔍 Checking if Homebrew is available..."
@@ -77,7 +77,7 @@ build:
 # unit files (not elisp), so it is excluded too.
 NS_APPRESDIR := $(CURDIR)/nextstep/Emacs.app/Contents/Resources
 .PHONY: install-a
-install-a:
+install-a: vterm-module
 	@test -d $(NS_APPRESDIR)/site-lisp || { echo "❌ $(NS_APPRESDIR)/site-lisp not found — run 'make install' first"; exit 1; }
 	rsync -a \
 		--exclude='.git*' \
@@ -88,12 +88,38 @@ install-a:
 		--exclude='*.elc' \
 		--exclude='*-tests.el' \
 		--exclude='daemon/' \
+		--exclude='build/' \
 		$(CURDIR)/a/ $(NS_APPRESDIR)/site-lisp/
 	@echo "✅ rsync'd a/ -> $(NS_APPRESDIR)/site-lisp/ (excluded data/docs/tests/.elc)"
 
 
+# Build the emacs-libvterm dynamic module via its CMake setup.  The
+# resulting vterm-module.so lands next to vterm.el in
+# a/emacs-libvterm/, so install-a will rsync both into site-lisp/.
+# Prefers the system libvterm (installed by deps/ldeps); falls back
+# to fetching + compiling the vendored libvterm if absent.
+VTERM_DIR := $(CURDIR)/a/emacs-libvterm
+.PHONY: vterm-module
+vterm-module:
+	@echo "🔨 Building emacs-libvterm vterm-module..."
+	@# Drop any stale CMakeCache.txt whose recorded source dir no longer
+	@# matches this checkout (happens when a/emacs-libvterm/build/ was
+	@# populated from a different clone path).
+	@if [ -f $(VTERM_DIR)/build/CMakeCache.txt ] && \
+		! grep -q "CMAKE_HOME_DIRECTORY:INTERNAL=$(VTERM_DIR)$$" \
+			$(VTERM_DIR)/build/CMakeCache.txt; then \
+		echo "🧹 Stale CMakeCache detected — wiping $(VTERM_DIR)/build"; \
+		rm -rf $(VTERM_DIR)/build; \
+	fi
+	mkdir -p $(VTERM_DIR)/build
+	cd $(VTERM_DIR)/build && cmake .. && $(MAKE)
+	@test -f $(VTERM_DIR)/vterm-module.so \
+		&& echo "✅ vterm-module built: $(VTERM_DIR)/vterm-module.so" \
+		|| { echo "❌ vterm-module.so missing after build"; exit 1; }
+
+
 # Ubuntu build target (with GTK GUI + SQLite)
-Linux: ldeps
+Linux: ldeps vterm-module
 	./autogen.sh
 	LDFLAGS="-L/usr/lib/gcc/x86_64-linux-gnu/13" \
 	CPPFLAGS="-I/usr/lib/gcc/x86_64-linux-gnu/13/include" \
@@ -109,12 +135,13 @@ Linux: ldeps
 ldeps:
 	sudo apt update && \
 	sudo apt install -y \
-		autoconf automake build-essential \
+		autoconf automake build-essential cmake \
 		texinfo libgtk-3-dev libjansson-dev libncurses-dev \
 		libgnutls28-dev pkg-config \
 		libsqlite3-dev libgccjit-13-dev \
 		libxpm-dev libgif-dev libjpeg-dev libpng-dev \
-		libtool libtool-bin libsystemd-dev libtree-sitter-dev
+		libtool libtool-bin libsystemd-dev libtree-sitter-dev \
+		libvterm-dev
 	@echo "✅ ldeps installed"
 
 .PHONY: local-bin brew-bin

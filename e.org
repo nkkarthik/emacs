@@ -1,4 +1,3 @@
 #+title: e
 
 * claude
-** add libvterm to darwin and linux in e.mk
