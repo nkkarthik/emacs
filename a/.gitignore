@@ -1,0 +1,55 @@
+*.db
+*.key
+*~
+
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+build/
+Build/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate
+*.perspective*
+xcuserdata/
+
+# Apple related
+*.DS_Store
+._*
+AppleDouble
+*.applesingle
+*.lbproj
+
+# Build products
+*.app
+*.dSYM
+*.pkg
+*.ipa
+
+# CocoaPods
+Pods/
+!Pods/.gitkeep
+Cartfile.resolved
+
+# Carthage
+Carthage/Build/
+
+# Swift Package Manager
+.swiftpm/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+
+# Localizable strings
+*.strings
+# Other
+*.lock
+*.log
+
+# Crashlytics
+Crashlytics.framework/
