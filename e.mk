@@ -72,8 +72,16 @@ NS_APPRESDIR := $(CURDIR)/nextstep/Emacs.app/Contents/Resources
 .PHONY: install-a
 install-a:
 	@test -d $(NS_APPRESDIR)/site-lisp || { echo "❌ $(NS_APPRESDIR)/site-lisp not found — run 'make install' first"; exit 1; }
-	rsync -a --exclude='.git*' --exclude='CLAUDE.md' $(CURDIR)/a/ $(NS_APPRESDIR)/site-lisp/
-	@echo "✅ rsync'd a/ -> $(NS_APPRESDIR)/site-lisp/"
+	rsync -a \
+		--exclude='.git*' \
+		--exclude='CLAUDE.md' \
+		--exclude='*.org' \
+		--exclude='*~' \
+		--exclude='*.db' --exclude='*.db-shm' --exclude='*.db-wal' \
+		--exclude='*.elc' \
+		--exclude='*-tests.el' \
+		$(CURDIR)/a/ $(NS_APPRESDIR)/site-lisp/
+	@echo "✅ rsync'd a/ -> $(NS_APPRESDIR)/site-lisp/ (excluded data/docs/tests/.elc)"
 
 
 # Ubuntu build target (with GTK GUI + SQLite)
