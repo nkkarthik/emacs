@@ -61,6 +61,10 @@ Read `* claude` heading in `e.org` as you work in this repo for your goals to wo
 
 When `* claude` in `e.org` is empty after finishing a task, stop and wait silently — do not auto-suggest the next task or ask "what's next". The user drives the queue by editing `e.org`; resume only when they add a new task there or tell you to.
 
+While idle on an empty queue, run a background watcher on `e.org` (e.g. via the `Monitor` tool, polling `stat -f %m e.org` every few seconds) so the next edit re-wakes the session automatically. On each wake:
+1. If the working tree is clean, run `git pull --rebase` — the edit may have come from another machine and there may be other pending pushes too.
+2. Re-read `* claude` in `e.org`. If a task appeared, pick it up. Otherwise stay silent (the change was unrelated).
+
 - When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first in the CLAUDE.org.
 - When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`).
 - For small, immediately-completed work you can skip the todo step and write straight into `** done`.
