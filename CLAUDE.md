@@ -76,10 +76,10 @@ Arm the watcher once per session and leave it running. Don't stop it between tas
 Never propose stopping the watcher, ask whether to stop it, or offer "stop" as one of multiple choices — the offer itself is a nudge the user will sometimes accept just because it's there. Only stop the watcher when the user *unprompted* says to stop it. When they do, just stop it silently — no confirmation, no follow-up question.
 
 - When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first in the CLAUDE.org.
-- When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`).
+- When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`). New `** done` entries go at the **top** of the section (reverse-chronological — newest first).
 - For small, immediately-completed work you can skip the todo step and write straight into `** done`.
 
-Keep entries terse — one line each, oldest at the top so it reads chronologically. The log is for future sessions to scan quickly; it is not a substitute for the git history.
+Keep entries terse — one line each, newest at the top so the most recent work is what a future session sees first. The log is for future sessions to scan quickly; it is not a substitute for the git history.
 
 ## Git workflow
 

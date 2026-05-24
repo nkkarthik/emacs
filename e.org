@@ -1,4 +1,3 @@
 #+title: e
 
 * claude
-** maintain done items in Claude.org in reverse chronological order
