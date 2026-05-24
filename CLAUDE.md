@@ -69,6 +69,8 @@ On each wake:
 1. If the working tree is clean and a pull wasn't just performed, run `git pull --rebase`.
 2. Re-read `* claude` in `e.org`. If a task appeared, pick it up. Otherwise stay silent (the change was unrelated).
 
+Arm the watcher once per session and leave it running. Don't stop it between tasks or while idle — restarting it every cycle is wasted churn and risks missing edits during the gap. Only stop the watcher if the user explicitly asks and gives a reason (e.g. it's misbehaving), or at session end.
+
 - When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first in the CLAUDE.org.
 - When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`).
 - For small, immediately-completed work you can skip the todo step and write straight into `** done`.
