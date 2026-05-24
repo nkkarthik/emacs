@@ -11,6 +11,8 @@ top of /done/ (reverse-chronological — newest first).
 
 ** done
 
+- 2026-05-24 e.org watcher: switch poller's pull to =git pull --rebase --autostash= so a dirty working tree no longer silently blocks remote updates (root cause: previous =[ -z "$(git status --porcelain)" ]= gate skipped pulls indefinitely while =a/= had uncommitted changes from another session).  Re-armed.
+- 2026-05-24 Delegated =a/daemon/= portability task from =e.org='s =* claude= to =a/daemon/CLAUDE.org= per the new "Never work on =a/*= directly" rule (task: hardcoded username in =e.plist=/=ec.plist=/=e.service= → templatize at install time).  Removed the line from =e.org=.
 - 2026-05-24 =CLAUDE.md=: add strict "Never work on =a/*= directly" section — root-repo session must queue any =a/<package>/= task into =a/<package>/CLAUDE.org= under =* claude= and stop; no edits, builds, or "just look first" passes into package internals.  Also saved as a memory entry.
 - 2026-05-24 =CLAUDE.md=: strengthen the watcher rule — never suggest stopping the watcher, never surface it in any "I can stop it if..." form; only stop on unprompted user request, silently with no follow-up.
 - 2026-05-24 Switch =CLAUDE.org='s =** done= log to reverse-chronological order (newest at top), reverse the existing entries in place, and update =CLAUDE.md='s working-log section to match (was: "oldest at the top so it reads chronologically" → "newest at the top so the most recent work is what a future session sees first").

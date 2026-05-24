@@ -1,4 +1,3 @@
 #+title: e
 
 * claude
-** files in a/daemon have username hardcoded and hence not portable. find way to make them generic or generate them with machine specific values (trmplatized) when daemon is installed on machine 
