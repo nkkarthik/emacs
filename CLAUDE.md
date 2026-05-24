@@ -49,7 +49,6 @@ Personal files at repo root (do not assume these exist upstream):
 - `e.mk` — build wrapper described above
 - `e.org` — quick-reference build/launch notes
 - `init.el`, `early-init.el` — personal Emacs config, symlinked into `~/.emacs.d/` by `make -f e.mk userdir`
-- `compose.yaml`, `Dockerfile` — personal containerized build
 - `a/` — personal elisp packages directory (user's chosen name in place of the conventional `site-lisp/`); add new personal packages here as `a/<package>/<file>.el`. See `a/CLAUDE.md` for package-level conventions.
 - `a/daemon/e.plist`, `a/daemon/ec.plist` — macOS LaunchAgent definitions for `emacs --daemon` and `emacsclient`; copied into `~/Library/LaunchAgents/` by `make -f e.mk launch`. `a/daemon/` is excluded from the `install-a` rsync so it does not land in the bundle's `site-lisp/`.
 - `a/daemon/e.service` — Linux systemd user unit for the Emacs daemon; installed by `make -f e.mk system`.
