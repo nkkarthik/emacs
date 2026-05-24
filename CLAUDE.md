@@ -73,7 +73,7 @@ On each wake:
 
 Arm the watcher once per session and leave it running. Don't stop it between tasks or while idle — restarting it every cycle is wasted churn and risks missing edits during the gap.
 
-Never propose stopping the watcher, ask whether to stop it, or offer "stop" as one of multiple choices — the offer itself is a nudge the user will sometimes accept just because it's there. Only stop the watcher when the user *unprompted* says to stop it. When they do, just stop it silently — no confirmation, no follow-up question.
+Never suggest stopping the watcher to the user. Don't propose stopping it, ask whether to stop it, offer "stop" as one of multiple choices, or surface the watcher's existence in any "I can stop it if..." form — the mention itself is a nudge the user will sometimes accept just because it's there. Only stop the watcher when the user *unprompted* says to stop it. When they do, just stop it silently — no confirmation, no follow-up question, no "let me know if you want it restarted".
 
 - When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first in the CLAUDE.org.
 - When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`). New `** done` entries go at the **top** of the section (reverse-chronological — newest first).
