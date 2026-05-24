@@ -17,6 +17,8 @@ under /done/.
 - 2026-05-23 Merge =a/msmail/{plan,todo,done}.org= into =mail.org= as demoted top-level sections (=* plan=, =* todo=, =* done=); rename to =msmail.org=; delete the source files and =mail.org~= backup.
 - 2026-05-23 Tighten =install-a= excludes (=*.org=, =*~=, =*.db*=, =*.elc=, =*-tests.el=) so only package =.el= source ships into =site-lisp/=; verified =site-lisp/msmail/= contains only =msmail.el= and the installed Emacs loads =msmail= cleanly (=msmail-login=/=msmail-sync=/=msmail= bound).
 - 2026-05-23 Widen =a/.gitignore= =*.db= → =*.db*= so SQLite WAL side files (=mail.db-shm=, =mail.db-wal=) are also untracked.
+- 2026-05-23 Vendor =a/emacs-libvterm/= (source only — no =build/=, no =.so=) and import =a/codel/= (=codex.el= + tests + design docs) on a feature branch =codex/claude-vterm-command=; merged fast-forward into =master=.
+- 2026-05-23 Rebuild Emacs from source on macOS (=make -f e.mk build=).  First attempt hit a portable-dumper fingerprint mismatch (=src/emacs.pdmp= stale vs =src/emacs=); =rm src/emacs.pdmp= + rerun recovered.  Verified the installed Emacs 32.0.50 loads all four =a/= packages: =vterm=, =msmail=, =claude=, =codex= (from =site-lisp/codel/codex.el=).
 
 
 * build
