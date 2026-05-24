@@ -1,4 +1,3 @@
 #+title: e
 
 * claude
-**  change e.mk when brew check fails ask user to run brew install manually instead of running in brew check 

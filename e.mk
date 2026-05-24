@@ -27,21 +27,27 @@ deps: brew-check
 
 brew-check:
 	@echo "🔍 Checking if Homebrew is available..."
-	@if ! command -v brew >/dev/null; then \
-		if [ -x "/opt/homebrew/bin/brew" ]; then \
-			echo "✅ Found brew at /opt/homebrew/bin/brew"; \
-		elif [ -x "/usr/local/bin/brew" ]; then \
-			echo "✅ Found brew at /usr/local/bin/brew"; \
-		else \
-			$(MAKE) brew-install; \
-		fi \
-	else \
+	@if command -v brew >/dev/null; then \
 		echo "✅ Brew already in PATH"; \
+	elif [ -x "/opt/homebrew/bin/brew" ]; then \
+		echo "✅ Found brew at /opt/homebrew/bin/brew"; \
+	elif [ -x "/usr/local/bin/brew" ]; then \
+		echo "✅ Found brew at /usr/local/bin/brew"; \
+	else \
+		echo "❌ Homebrew not found."; \
+		echo "   Install it yourself, then re-run this build."; \
+		echo "   The 'brew-install' target shows the official one-liner:"; \
+		echo "     make -f e.mk brew-install"; \
+		exit 1; \
 	fi
 
+# Prints the official Homebrew install command for the user to run
+# manually.  Intentionally does not pipe curl into bash on the user's
+# behalf — installing Homebrew is a one-time choice that should be
+# made knowingly.
 brew-install:
-	@echo "🍺 Installing Homebrew..."
-	@/bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+	@echo "Run this yourself to install Homebrew:"
+	@echo '  /bin/bash -c "$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
 
 
 configure:
