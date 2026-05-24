@@ -61,6 +61,19 @@ build:
 	@echo "✅ Emacs.app built"
 	make install
 	@echo "✅ Emacs.app installed"
+	$(MAKE) -f e.mk install-a
+	@echo "✅ a/ packages installed into site-lisp/"
+
+
+# Copy personal elisp packages from a/ into the installed Emacs.app's
+# site-lisp/ tree.  Excludes git-crypt/git metadata and CLAUDE.md so
+# only package code lands in the bundle.
+NS_APPRESDIR := $(CURDIR)/nextstep/Emacs.app/Contents/Resources
+.PHONY: install-a
+install-a:
+	@test -d $(NS_APPRESDIR)/site-lisp || { echo "❌ $(NS_APPRESDIR)/site-lisp not found — run 'make install' first"; exit 1; }
+	rsync -a --exclude='.git*' --exclude='CLAUDE.md' $(CURDIR)/a/ $(NS_APPRESDIR)/site-lisp/
+	@echo "✅ rsync'd a/ -> $(NS_APPRESDIR)/site-lisp/"
 
 
 # Ubuntu build target (with GTK GUI + SQLite)

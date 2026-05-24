@@ -1,6 +1,21 @@
 #+title: e
 
 
+* claude
+
+Working log maintained by Claude Code sessions in this repo.  Append-only:
+move items from /todo/ to /done/ as they complete; record new work directly
+under /done/.
+
+** todo
+
+** done
+
+- 2026-05-23 Add =CLAUDE.md= at repo root and =a/CLAUDE.md= covering build/upstream/install conventions.
+- 2026-05-23 Add sample =a/foo= package (=foo.el= with =foo-hello=) and =install-a= target in =e.mk= that rsyncs =a/= into =Emacs.app/Contents/Resources/site-lisp/=, hooked into the post-install step.
+- 2026-05-23 Verify installed Emacs auto-adds =site-lisp/foo/= to =load-path= via the bundle's =subdirs.el=; =(require 'foo)= resolves and =(foo-hello)= returns the expected string.  Note: =-Q= disables site-lisp processing — use =--no-init-file= alone when verifying =a/= installs.
+
+
 * build
 
 #+begin_src sh

@@ -55,6 +55,16 @@ Personal files at repo root (do not assume these exist upstream):
 - `a/` — personal elisp packages directory (user's chosen name in place of the conventional `site-lisp/`); add new personal packages here as `a/<package>/<file>.el`. See `a/CLAUDE.md` for package-level conventions.
 - `widget-test.el`, `z` — personal scratch
 
+## Working log in `e.org`
+
+Maintain a `* claude` heading in `e.org` with two subheadings, `** todo` and `** done`. As you work in this repo:
+
+- When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first.
+- When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`).
+- For small, immediately-completed work you can skip the todo step and write straight into `** done`.
+
+Keep entries terse — one line each, oldest at the top so it reads chronologically. The log is for future sessions to scan quickly; it is not a substitute for the git history.
+
 ## Git workflow
 
 Push URL is SSH (`git@github.com:nkkarthik/emacs.git`), fetch is HTTPS. Always run `git pull --rebase` before `git push` — never bare push.
