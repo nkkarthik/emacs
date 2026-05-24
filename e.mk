@@ -67,7 +67,8 @@ build:
 
 # Copy personal elisp packages from a/ into the installed Emacs.app's
 # site-lisp/ tree.  Excludes git-crypt/git metadata and CLAUDE.md so
-# only package code lands in the bundle.
+# only package code lands in the bundle.  a/daemon/ holds launchd/systemd
+# unit files (not elisp), so it is excluded too.
 NS_APPRESDIR := $(CURDIR)/nextstep/Emacs.app/Contents/Resources
 .PHONY: install-a
 install-a:
@@ -80,6 +81,7 @@ install-a:
 		--exclude='*.db' --exclude='*.db-shm' --exclude='*.db-wal' \
 		--exclude='*.elc' \
 		--exclude='*-tests.el' \
+		--exclude='daemon/' \
 		$(CURDIR)/a/ $(NS_APPRESDIR)/site-lisp/
 	@echo "✅ rsync'd a/ -> $(NS_APPRESDIR)/site-lisp/ (excluded data/docs/tests/.elc)"
 
@@ -124,7 +126,7 @@ brew-bin:
 .PHONY: launch
 launch:
 	mkdir -p $(HOME)/Library/LaunchAgents/
-	cp $(CURDIR)/e.plist $(CURDIR)/ec.plist $(HOME)/Library/LaunchAgents/
+	cp $(CURDIR)/a/daemon/e.plist $(CURDIR)/a/daemon/ec.plist $(HOME)/Library/LaunchAgents/
 	@echo "🚀 Starting Emacs daemon..."
 	@launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/e.plist 2>/dev/null || true
 	@launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/ec.plist 2>/dev/null || true
@@ -143,7 +145,7 @@ launchr:
 .PHONY: system
 system:
 	mkdir -p $(HOME)/.config/systemd/user/
-	cp $(CURDIR)/e.service $(HOME)/.config/systemd/user/e.service
+	cp $(CURDIR)/a/daemon/e.service $(HOME)/.config/systemd/user/e.service
 	@echo "Starting Emacs daemon..."
 	# Start and enable on login
 	systemctl --user enable e.service

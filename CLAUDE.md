@@ -25,8 +25,8 @@ What `e.mk` does on macOS:
 
 Other useful `e.mk` targets:
 - `brew-bin` / `local-bin` — symlink `src/emacs` and `lib-src/emacsclient` into `/opt/homebrew/bin` or `/usr/local/bin`
-- `launch` / `launchr` — install + (re)load macOS LaunchAgent plists from `e.plist` / `ec.plist`
-- `system` — install + enable the Linux systemd user unit from `e.service`
+- `launch` / `launchr` — install + (re)load macOS LaunchAgent plists from `a/daemon/e.plist` / `a/daemon/ec.plist`
+- `system` — install + enable the Linux systemd user unit from `a/daemon/e.service`
 
 Variables: `EMACS_PREFIX` (default `$HOME/.local/emacs`), `JOBS` (default detected).
 
@@ -48,18 +48,18 @@ See `test/README` for selector syntax.
 Personal files at repo root (do not assume these exist upstream):
 - `e.mk` — build wrapper described above
 - `e.org` — quick-reference build/launch notes
-- `e.plist`, `ec.plist` — macOS LaunchAgent definitions for `emacs --daemon` and `emacsclient`
-- `e.service` — Linux systemd user unit for the Emacs daemon
 - `init.el`, `early-init.el` — personal Emacs config, symlinked into `~/.emacs.d/` by `make -f e.mk userdir`
 - `compose.yaml`, `Dockerfile` — personal containerized build
 - `a/` — personal elisp packages directory (user's chosen name in place of the conventional `site-lisp/`); add new personal packages here as `a/<package>/<file>.el`. See `a/CLAUDE.md` for package-level conventions.
+- `a/daemon/e.plist`, `a/daemon/ec.plist` — macOS LaunchAgent definitions for `emacs --daemon` and `emacsclient`; copied into `~/Library/LaunchAgents/` by `make -f e.mk launch`. `a/daemon/` is excluded from the `install-a` rsync so it does not land in the bundle's `site-lisp/`.
+- `a/daemon/e.service` — Linux systemd user unit for the Emacs daemon; installed by `make -f e.mk system`.
 - `widget-test.el`, `z` — personal scratch
 
-## Working log in `e.org`
+## Working log in `CLAUDE.org`
 
-Maintain a `* claude` heading in `e.org` with two subheadings, `** todo` and `** done`. As you work in this repo:
+Read `* claude` heading in `e.org` as you work in this repo for your goals to work to until reached. Pick the next task in the section, finish it and mark done as DONE in `CLAUDE.org` file under `* done` section. iff the task belongs to any sub agents under a/, it will mentioned to add to a file under that file in a, in that case just add that to `* claude` section in that file and move on to next task.
 
-- When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first.
+- When you start a task that will produce a tangible change (file edit, build wiring, verification, etc.), add a one-line entry under `** todo` first in the CLAUDE.org.
 - When you finish, move the line to `** done` and prefix it with the date (`YYYY-MM-DD`).
 - For small, immediately-completed work you can skip the todo step and write straight into `** done`.
 

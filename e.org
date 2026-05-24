@@ -1,24 +1,6 @@
 #+title: e
 
-
 * claude
-
-Working log maintained by Claude Code sessions in this repo.  Append-only:
-move items from /todo/ to /done/ as they complete; record new work directly
-under /done/.
-
-** todo
-
-** done
-
-- 2026-05-23 Add =CLAUDE.md= at repo root and =a/CLAUDE.md= covering build/upstream/install conventions.
-- 2026-05-23 Add sample =a/foo= package (=foo.el= with =foo-hello=) and =install-a= target in =e.mk= that rsyncs =a/= into =Emacs.app/Contents/Resources/site-lisp/=, hooked into the post-install step.
-- 2026-05-23 Verify installed Emacs auto-adds =site-lisp/foo/= to =load-path= via the bundle's =subdirs.el=; =(require 'foo)= resolves and =(foo-hello)= returns the expected string.  Note: =-Q= disables site-lisp processing — use =--no-init-file= alone when verifying =a/= installs.
-- 2026-05-23 Merge =a/msmail/{plan,todo,done}.org= into =mail.org= as demoted top-level sections (=* plan=, =* todo=, =* done=); rename to =msmail.org=; delete the source files and =mail.org~= backup.
-- 2026-05-23 Tighten =install-a= excludes (=*.org=, =*~=, =*.db*=, =*.elc=, =*-tests.el=) so only package =.el= source ships into =site-lisp/=; verified =site-lisp/msmail/= contains only =msmail.el= and the installed Emacs loads =msmail= cleanly (=msmail-login=/=msmail-sync=/=msmail= bound).
-- 2026-05-23 Widen =a/.gitignore= =*.db= → =*.db*= so SQLite WAL side files (=mail.db-shm=, =mail.db-wal=) are also untracked.
-- 2026-05-23 Vendor =a/emacs-libvterm/= (source only — no =build/=, no =.so=) and import =a/codel/= (=codex.el= + tests + design docs) on a feature branch =codex/claude-vterm-command=; merged fast-forward into =master=.
-- 2026-05-23 Rebuild Emacs from source on macOS (=make -f e.mk build=).  First attempt hit a portable-dumper fingerprint mismatch (=src/emacs.pdmp= stale vs =src/emacs=); =rm src/emacs.pdmp= + rerun recovered.  Verified the installed Emacs 32.0.50 loads all four =a/= packages: =vterm=, =msmail=, =claude=, =codex= (from =site-lisp/codel/codex.el=).
 
 
 * build
