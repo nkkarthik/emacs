@@ -4,7 +4,7 @@ EMACS_PREFIX ?= $(HOME)/.local/emacs
 JOBS ?= $(shell sysclt -n hw.ncpu 2>/dev/null || nproc)
 BREW := $(shell command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)
 
-.PHONY: all Darwin Linux deps configure build userdir
+.PHONY: all Darwin Linux deps configure build userdir codesign
 
 
 all: $(OS)
@@ -69,6 +69,35 @@ build:
 	@echo "✅ Emacs.app installed"
 	$(MAKE) -f e.mk install-a
 	@echo "✅ a/ packages installed into site-lisp/"
+	$(MAKE) -f e.mk codesign
+
+
+# Force-resign locally-built binaries with a real ad-hoc signature.
+# macOS 26+ kills launchd-spawned binaries that carry only the default
+# linker-signed signature (Launch Constraint Violation → SIGKILL
+# "Code Signature Invalid").  Re-signing with `codesign --sign -`
+# replaces the linker-signed marker with a real adhoc signature so the
+# `em` / `ec` LaunchAgents (which reach these via brew-bin/local-bin
+# symlinks at /opt/homebrew/bin/{emacs,emacsclient}) can run.
+#
+# Only the build-tree binaries are signed here — signing the Emacs.app
+# bundle's binaries is a different exercise (codesign recurses into
+# the bundle and trips on unsigned helpers like libexec/rcs2log), and
+# the current LaunchAgents don't reference them.
+codesign:
+	@if [ "$(OS)" != "Darwin" ]; then \
+		echo "ℹ️  codesign: not Darwin, skipping"; exit 0; \
+	fi
+	@echo "🔏 Code-signing emacs and emacsclient..."
+	@for f in \
+		$(CURDIR)/src/emacs \
+		$(CURDIR)/lib-src/emacsclient; do \
+		if [ -f "$$f" ]; then \
+			codesign --force --sign - "$$f" \
+				&& echo "✅ signed $$f" \
+				|| { echo "❌ codesign failed: $$f"; exit 1; }; \
+		fi; \
+	done
 
 
 # Copy personal elisp packages from a/ into the installed Emacs.app's
