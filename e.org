@@ -2,3 +2,4 @@
 
 * claude
 init.el and early-init.el are removed. update build
+persist msmail-sync-timer-start (300s) in init.el via (with-eval-after-load 'msmail ...)
