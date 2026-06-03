@@ -134,11 +134,12 @@ install-a: vterm-module
 
 
 # Build the emacs-libvterm dynamic module via its CMake setup.  The
-# resulting vterm-module.so lands next to vterm.el in
-# a/emacs-libvterm/, so install-a will rsync both into site-lisp/.
-# Prefers the system libvterm (installed by deps/ldeps); falls back
-# to fetching + compiling the vendored libvterm if absent.
-VTERM_DIR := $(CURDIR)/a/emacs-libvterm
+# source lives at x/emacs-libvterm (submodule); the resulting
+# vterm-module.so lands next to vterm.el inside the submodule, and
+# install-a rsyncs both into site-lisp/.  Prefers the system
+# libvterm (installed by deps/ldeps); falls back to fetching +
+# compiling the vendored libvterm if absent.
+VTERM_DIR := $(CURDIR)/x/emacs-libvterm
 .PHONY: vterm-module
 vterm-module:
 	@echo "🔨 Building emacs-libvterm vterm-module..."
