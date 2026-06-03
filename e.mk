@@ -10,7 +10,7 @@ BREW := $(shell command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)
 all: $(OS)
 
 
-Darwin: deps configure build userdir
+Darwin: deps tree-sitter-src configure build userdir
 
 userdir:
 	mkdir -p $(HOME)/.emacs.d/
@@ -20,9 +20,13 @@ userdir:
 
 deps: brew-check
 	@echo "🔧 Installing dependencies with Homebrew..."
+	@# tree-sitter is intentionally omitted: it is built from the
+	@# x/tree-sitter submodule by the tree-sitter-src target so both
+	@# Darwin and Linux pin to the same version (currently v0.26.9).
+	@# Run `brew uninstall tree-sitter` if you previously had it.
 	$(BREW) install autoconf automake texinfo pkg-config \
 		gnutls libjpeg libpng librsvg libtiff libxpm \
-		ncurses mailutils libxml2 jansson sqlite imagemagick tree-sitter \
+		ncurses mailutils libxml2 jansson sqlite imagemagick \
 		gcc libgccjit cmake libtool libvterm
 
 brew-check:
@@ -53,7 +57,7 @@ brew-install:
 configure:
 	@echo "⚙️ Running autogen.sh and configure..."
 	./autogen.sh
-	PKG_CONFIG_PATH="/opt/homebrew/opt/gcc/lib/pkgconfig" \
+	PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/opt/homebrew/opt/gcc/lib/pkgconfig" \
 	./configure --with-ns \
 	            --with-modules \
 	            --with-json \
@@ -196,7 +200,9 @@ tree-sitter-src:
 	@echo "🔨 Building libtree-sitter from $(TREE_SITTER_SRC)..."
 	cd $(TREE_SITTER_SRC) && make
 	cd $(TREE_SITTER_SRC) && sudo make install PREFIX=/usr/local
-	sudo ldconfig /usr/local/lib
+	@# ldconfig is Linux-only; macOS resolves /usr/local/lib via the
+	@# default dyld fallback search path.
+	@command -v ldconfig >/dev/null && sudo ldconfig /usr/local/lib || true
 	@echo "✅ libtree-sitter installed from source into /usr/local"
 
 
