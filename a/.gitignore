@@ -1,6 +1,7 @@
 *.db*
 *.key
 *~
+sglang-jsonrpc.sock
 
 # Xcode
 *.xcodeproj/xcuserdata/
