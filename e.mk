@@ -158,18 +158,43 @@ vterm-module:
 		|| { echo "❌ vterm-module.so missing after build"; exit 1; }
 
 
-# Ubuntu build target (with GTK GUI + SQLite)
-Linux: ldeps vterm-module
+# Ubuntu build target (with GTK GUI + SQLite). libtree-sitter is
+# built from the x/tree-sitter submodule rather than apt, because
+# Ubuntu 24's libtree-sitter-dev (0.20.8-2) caps Emacs at ABI 14
+# and several grammars (tree-sitter-python v0.25.0+, etc.) now
+# require ABI 15.
+Linux: ldeps tree-sitter-src vterm-module
 	./autogen.sh
 	LDFLAGS="-L/usr/lib/gcc/x86_64-linux-gnu/13" \
 	CPPFLAGS="-I/usr/lib/gcc/x86_64-linux-gnu/13/include" \
+	PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$$PKG_CONFIG_PATH" \
+	LD_LIBRARY_PATH="/usr/local/lib:$$LD_LIBRARY_PATH" \
 	./configure --with-x-toolkit=gtk3 --with-json --with-modules \
-	            --with-native-compilation --with-sqlite3 && \
+	            --with-native-compilation --with-sqlite3 \
+	            --with-tree-sitter && \
 	make -j$(JOBS)
 	@echo "✅ emacs-gtk built"
 
 #	make install
 #	@echo "✅ emacs-gtk installed"
+
+
+# Build and install libtree-sitter from the x/tree-sitter submodule
+# into /usr/local. Used by Linux to bypass the Ubuntu apt ceiling on
+# libtree-sitter-dev. Idempotent — re-runs the build and install,
+# which is cheap (single static + shared lib).
+TREE_SITTER_SRC := $(CURDIR)/x/tree-sitter
+.PHONY: tree-sitter-src
+tree-sitter-src:
+	@test -d $(TREE_SITTER_SRC)/.git || { \
+		echo "❌ $(TREE_SITTER_SRC) missing — run 'git submodule update --init x/tree-sitter'"; \
+		exit 1; \
+	}
+	@echo "🔨 Building libtree-sitter from $(TREE_SITTER_SRC)..."
+	cd $(TREE_SITTER_SRC) && make
+	cd $(TREE_SITTER_SRC) && sudo make install PREFIX=/usr/local
+	sudo ldconfig /usr/local/lib
+	@echo "✅ libtree-sitter installed from source into /usr/local"
 
 
 ldeps:
@@ -180,7 +205,7 @@ ldeps:
 		libgnutls28-dev pkg-config \
 		libsqlite3-dev libgccjit-13-dev \
 		libxpm-dev libgif-dev libjpeg-dev libpng-dev \
-		libtool libtool-bin libsystemd-dev libtree-sitter-dev \
+		libtool libtool-bin libsystemd-dev \
 		libvterm-dev
 	@echo "✅ ldeps installed"
 
