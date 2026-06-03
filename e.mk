@@ -186,7 +186,9 @@ Linux: ldeps tree-sitter-src vterm-module
 TREE_SITTER_SRC := $(CURDIR)/x/tree-sitter
 .PHONY: tree-sitter-src
 tree-sitter-src:
-	@test -d $(TREE_SITTER_SRC)/.git || { \
+	@# Submodules have a .git FILE (not directory) pointing into the parent
+	@# repo's .git/modules tree, so test for Makefile presence instead.
+	@test -e $(TREE_SITTER_SRC)/Makefile || { \
 		echo "❌ $(TREE_SITTER_SRC) missing — run 'git submodule update --init x/tree-sitter'"; \
 		exit 1; \
 	}
