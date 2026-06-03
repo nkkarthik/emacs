@@ -253,12 +253,15 @@ launchr:
 system:
 	mkdir -p $(HOME)/.config/systemd/user/
 	cp $(CURDIR)/a/daemon/e.service $(HOME)/.config/systemd/user/e.service
-	@echo "Starting Emacs daemon..."
-	# Start and enable on login
+	@echo "🔄 Reloading systemd user units..."
+	systemctl --user daemon-reload
 	systemctl --user enable e.service
-	systemctl --user start e.service
-	sudo loginctl enable-linger knannuru
-	@echo "🚀 Started"
+	@# restart (not start) so edits to e.service — env vars in particular —
+	@# take effect when the daemon is already running. The previous `start`
+	@# was a no-op when active, which silently dropped env-var changes.
+	systemctl --user restart e.service
+	sudo loginctl enable-linger $$(id -un)
+	@echo "🚀 Emacs daemon (re)started"
 
 
 # to start the daemon on boot without user login
