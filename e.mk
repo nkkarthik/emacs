@@ -27,7 +27,13 @@ deps: brew-check
 	$(BREW) install autoconf automake texinfo pkg-config \
 		gnutls libjpeg libpng librsvg libtiff libxpm \
 		ncurses mailutils libxml2 jansson sqlite imagemagick \
-		gcc libgccjit cmake libtool libvterm
+		gcc libgccjit cmake libtool libvterm \
+		go node llvm rust-analyzer
+	@echo "🔧 Installing language servers via go and npm..."
+	@# gopls lands in $(GOBIN) (default $$HOME/go/bin); ts-language-server
+	@# in brew's node prefix (user-writable, no sudo needed).
+	go install golang.org/x/tools/gopls@latest
+	npm install -g typescript-language-server typescript
 
 brew-check:
 	@echo "🔍 Checking if Homebrew is available..."
@@ -215,7 +221,16 @@ ldeps:
 		libsqlite3-dev libgccjit-13-dev \
 		libxpm-dev libgif-dev libjpeg-dev libpng-dev \
 		libtool libtool-bin libsystemd-dev \
-		libvterm-dev
+		libvterm-dev \
+		clangd rust-analyzer golang-go nodejs npm
+	@echo "✅ apt deps installed"
+	@echo "🔧 Installing language servers via go and npm..."
+	@# gopls into $$HOME/go/bin (already on the daemon's PATH).
+	go install golang.org/x/tools/gopls@latest
+	@# typescript-language-server: npm prefix is /usr/local with apt's
+	@# npm, so sudo is required. Adjust if you have a user-prefix
+	@# (npm config set prefix $$HOME/.npm-global).
+	sudo npm install -g typescript-language-server typescript
 	@echo "✅ ldeps installed"
 
 .PHONY: local-bin brew-bin
