@@ -15,7 +15,6 @@ Darwin: deps tree-sitter-src configure build userdir
 userdir:
 	mkdir -p $(HOME)/.emacs.d/
 	ln -sf $(CURDIR)/init.el $(HOME)/.emacs.d/init.el
-	ln -sf $(CURDIR)/early-init.el $(HOME)/.emacs.d/early-init.el
 
 
 deps: brew-check
