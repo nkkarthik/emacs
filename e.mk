@@ -30,10 +30,14 @@ deps: brew-check
 		gcc libgccjit cmake libtool libvterm \
 		go node llvm rust-analyzer
 	@echo "🔧 Installing language servers via go and npm..."
-	@# gopls lands in $(GOBIN) (default $$HOME/go/bin); ts-language-server
-	@# in brew's node prefix (user-writable, no sudo needed).
+	@# gopls lands in $(GOBIN) (default $$HOME/go/bin); npm globals
+	@# go to brew's node prefix (user-writable, no sudo needed).
+	@# vscode-langservers-extracted bundles HTML, CSS, JSON, ESLint
+	@# language servers in one package.
 	go install golang.org/x/tools/gopls@latest
-	npm install -g typescript-language-server typescript
+	npm install -g typescript-language-server typescript \
+	               vscode-langservers-extracted \
+	               dockerfile-language-server-nodejs
 
 brew-check:
 	@echo "🔍 Checking if Homebrew is available..."
@@ -236,11 +240,15 @@ ldeps:
 	@echo "🔧 Installing gopls..."
 	@# gopls into $$HOME/go/bin (already on the daemon's PATH).
 	go install golang.org/x/tools/gopls@latest
-	@echo "🔧 Installing typescript-language-server (sudo npm -g)..."
+	@echo "🔧 Installing npm-based language servers (sudo npm -g)..."
 	@# nodesource's nodejs provides npm at /usr/bin/npm with prefix
 	@# /usr, so sudo is required. If you switch npm to a user prefix
 	@# (npm config set prefix $$HOME/.npm-global), drop sudo.
-	sudo npm install -g typescript-language-server typescript
+	@# vscode-langservers-extracted bundles HTML, CSS, JSON, ESLint
+	@# language servers in one package.
+	sudo npm install -g typescript-language-server typescript \
+	                    vscode-langservers-extracted \
+	                    dockerfile-language-server-nodejs
 	@echo "✅ ldeps installed"
 
 .PHONY: local-bin brew-bin
