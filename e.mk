@@ -4,17 +4,13 @@ EMACS_PREFIX ?= $(HOME)/.local/emacs
 JOBS ?= $(shell sysclt -n hw.ncpu 2>/dev/null || nproc)
 BREW := $(shell command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)
 
-.PHONY: all Darwin Linux deps configure build userdir codesign
+.PHONY: all Darwin Linux deps configure build codesign
 
 
 all: $(OS)
 
 
-Darwin: deps tree-sitter-src configure build userdir
-
-userdir:
-	mkdir -p $(HOME)/.emacs.d/
-	ln -sf $(CURDIR)/init.el $(HOME)/.emacs.d/init.el
+Darwin: deps tree-sitter-src configure build
 
 
 deps: brew-check
