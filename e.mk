@@ -222,14 +222,24 @@ ldeps:
 		libxpm-dev libgif-dev libjpeg-dev libpng-dev \
 		libtool libtool-bin libsystemd-dev \
 		libvterm-dev \
-		clangd rust-analyzer golang-go nodejs npm
+		clangd golang-go nodejs
 	@echo "✅ apt deps installed"
-	@echo "🔧 Installing language servers via go and npm..."
+	@# rust-analyzer is not in Ubuntu noble's apt repos. Pull the
+	@# upstream static binary into ~/.local/bin (already on the
+	@# daemon's PATH). If you have rustup installed,
+	@# `rustup component add rust-analyzer` is the alternative.
+	@echo "🔧 Installing rust-analyzer release binary..."
+	mkdir -p $$HOME/.local/bin
+	curl -fsSL https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz \
+	  | gunzip -c - > $$HOME/.local/bin/rust-analyzer
+	chmod +x $$HOME/.local/bin/rust-analyzer
+	@echo "🔧 Installing gopls..."
 	@# gopls into $$HOME/go/bin (already on the daemon's PATH).
 	go install golang.org/x/tools/gopls@latest
-	@# typescript-language-server: npm prefix is /usr/local with apt's
-	@# npm, so sudo is required. Adjust if you have a user-prefix
-	@# (npm config set prefix $$HOME/.npm-global).
+	@echo "🔧 Installing typescript-language-server (sudo npm -g)..."
+	@# nodesource's nodejs provides npm at /usr/bin/npm with prefix
+	@# /usr, so sudo is required. If you switch npm to a user prefix
+	@# (npm config set prefix $$HOME/.npm-global), drop sudo.
 	sudo npm install -g typescript-language-server typescript
 	@echo "✅ ldeps installed"
 
