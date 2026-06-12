@@ -6229,11 +6229,13 @@ ns_term_shutdown (int sig)
 #define NSAppKitVersionNumber10_9 1265
 #endif
 
-  if ((int) NSAppKitVersionNumber != NSAppKitVersionNumber10_9)
-    {
-      [super run];
-      return;
-    }
+  /* On macOS 10.10+ [super run] requires one extra event after
+     [NSApp stop:] before the loop actually exits.  When Emacs drains
+     all pending events (e.g. after a frame maximize) no such event
+     arrives and the daemon hangs forever.  The custom loop below exits
+     immediately once shouldKeepRunning is set to NO by stop:, which
+     avoids the hang.  The ns_send_appdefined guard already handles the
+     10.10.1 "swallowed AppDefined event" case.  */
 
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
