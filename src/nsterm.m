@@ -6251,7 +6251,7 @@ ns_term_shutdown (int sig)
       NSEvent *event =
         [self nextEventMatchingMask:NSEventMaskAny
                           untilDate:[NSDate distantFuture]
-                             inMode:NSDefaultRunLoopMode
+                             inMode:NSRunLoopCommonModes
                             dequeue:YES];
 
       [self sendEvent:event];
@@ -6266,8 +6266,9 @@ ns_term_shutdown (int sig)
   NSTRACE ("[EmacsApp stop:]");
 
     shouldKeepRunning = NO;
-    // Stop possible dialog also.  Noop if no dialog present.
-    // The file dialog still leaks 7k - 10k on 10.9 though.
+    /* Propagate to AppKit's modal-session machinery so that any active
+       runModalForWindow: session (e.g. EmacsDialogPanel) also exits.
+       Noop when no modal session is present.  */
     [super stop:sender];
 }
 #endif /* NS_IMPL_COCOA */
