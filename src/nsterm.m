@@ -6248,14 +6248,21 @@ ns_term_shutdown (int sig)
       [pool release];
       pool = [[NSAutoreleasePool alloc] init];
 
+      /* NSRunLoopCommonModes is a pseudo-mode tag, not a real run-loop
+	 mode; on macOS 26+ passing it to nextEventMatchingMask: returns
+	 nil immediately, causing a 100% CPU spin.  Use the default mode
+	 so the call blocks correctly when no event is pending.  */
       NSEvent *event =
         [self nextEventMatchingMask:NSEventMaskAny
                           untilDate:[NSDate distantFuture]
-                             inMode:NSRunLoopCommonModes
+                             inMode:NSDefaultRunLoopMode
                             dequeue:YES];
 
-      [self sendEvent:event];
-      [self updateWindows];
+      if (event)
+	{
+	  [self sendEvent:event];
+	  [self updateWindows];
+	}
     } while (shouldKeepRunning);
 
   [pool release];
