@@ -11,6 +11,8 @@ top of /done/ (reverse-chronological — newest first).
 
 ** done
 
+- 2026-06-14 =src/nsterm.m=: restore =[super stop:sender]= in =EmacsApp stop:=.  Removing it in the prior maximize-hang fix broke =EmacsDialogPanel= (=y-or-n-p=, =yes-or-no-p=, =x-popup-dialog= all hung): =runDialogAt:= drives its loop via =[NSApp runModalForWindow:]= and exits via =[NSApp stop: self]= which relies on =NSApplication -stop:= posting a modal-stop sentinel; without =[super stop:sender]= that sentinel was never posted.  Identified by code review; fix compiles clean (=nsterm.o= exit 0), committed 60fb760f4d8.
+
 - 2026-06-12 =src/nsterm.m=: fix Emacs daemon hang-after-maximize on macOS 26.  Root cause: =[EmacsApp run]= fell through to =[super run]= (=[NSApplication run]=) on all non-10.9 macOS; that loop requires one extra event after =[NSApp stop:]= to exit, but after a frame maximize drains all pending events no event arrives, so the loop blocked forever.  Fix: remove the =[super run]= early-return so the custom =shouldKeepRunning=-based loop is used on all macOS versions.  The existing =ns_send_appdefined= guard already handles the 10.10.1 swallowed-AppDefined-event case.  Daemon killed (PID 878, hung 2.5 days), incremental build, restarted as PID 79098.  =emacsclient --eval "(emacs-version)"= confirmed responsive.
 
 - 2026-06-04 =e.mk=: remove =userdir= target entirely (no longer managing =~/.emacs.d/= symlinks from e.mk).
