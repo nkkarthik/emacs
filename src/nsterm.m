@@ -6234,8 +6234,20 @@ ns_term_shutdown (int sig)
      all pending events (e.g. after a frame maximize) no such event
      arrives and the daemon hangs forever.  The custom loop below exits
      immediately once shouldKeepRunning is set to NO by stop:, which
-     avoids the hang.  The ns_send_appdefined guard already handles the
-     10.10.1 "swallowed AppDefined event" case.  */
+     avoids the hang.
+
+     NSRunLoopCommonModes is a pseudo-mode tag; on macOS 26+ passing it
+     to nextEventMatchingMask: returns nil immediately causing a 100%
+     CPU spin, so we use NSDefaultRunLoopMode.
+
+     Frame maximize can briefly raise a modal window (title-bar sheet,
+     animation context) while an AppDefined event is in flight.  When
+     sendEvent: sees a modal window it defers the AppDefined by setting
+     send_appdefined = YES without calling stop:.  With distantFuture
+     nobody re-posts the AppDefined and the loop hangs forever.  Using
+     a short timeout lets us re-post on each wakeup: ns_send_appdefined
+     is a no-op when send_appdefined is NO, so normal-case cost is one
+     extra ~100 ms wakeup per idle wait — negligible.  */
 
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
@@ -6248,13 +6260,9 @@ ns_term_shutdown (int sig)
       [pool release];
       pool = [[NSAutoreleasePool alloc] init];
 
-      /* NSRunLoopCommonModes is a pseudo-mode tag, not a real run-loop
-	 mode; on macOS 26+ passing it to nextEventMatchingMask: returns
-	 nil immediately, causing a 100% CPU spin.  Use the default mode
-	 so the call blocks correctly when no event is pending.  */
       NSEvent *event =
         [self nextEventMatchingMask:NSEventMaskAny
-                          untilDate:[NSDate distantFuture]
+                          untilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]
                              inMode:NSDefaultRunLoopMode
                             dequeue:YES];
 
@@ -6262,6 +6270,12 @@ ns_term_shutdown (int sig)
 	{
 	  [self sendEvent:event];
 	  [self updateWindows];
+	}
+      else if (send_appdefined)
+	{
+	  /* AppDefined was deferred (modal window present in sendEvent:).
+	     Re-post now that the modal may have cleared.  */
+	  ns_send_appdefined (-1);
 	}
     } while (shouldKeepRunning);
 

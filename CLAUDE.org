@@ -9,6 +9,8 @@ top of /done/ (reverse-chronological — newest first).
 
 ** todo
 
+- =src/nsterm.m=: fix daemon hang after frame maximize (round 3) — =NSDefaultRunLoopMode= fix stops CPU spin but deferred AppDefined (when zoom briefly sets =[NSApp modalWindow] != nil= in =sendEvent:=) never gets re-posted; loop waits forever in =nextEventMatchingMask:distantFuture=.
+
 ** done
 
 - 2026-06-15 =src/nsterm.m=: fix 100% CPU spin in =--fg-daemon= on macOS 26.  Root cause: the 2026-06-12 maximize-hang fix replaced =[super run]= with a custom loop using =NSRunLoopCommonModes= in =nextEventMatchingMask:untilDate:inMode:=.  On macOS 26 that pseudo-mode is invalid for =CFRunLoopRunSpecific= (logged as "invalid mode 'kCFRunLoopCommonModes'") and the call returns =nil= immediately instead of blocking, causing a tight spin at 99.6% CPU.  Fix: change to =NSDefaultRunLoopMode= and guard =sendEvent:= against =nil=.  Daemon PID 877 killed, rebuilt, restarted as PID 9613 at 0.0% CPU; =emacsclient -e '(emacs-version)'= confirmed responsive.
