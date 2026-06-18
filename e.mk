@@ -272,9 +272,6 @@ launch:
 	@sleep 2
 	@echo "✅ Emacs daemon and client LaunchAgents started"
 	@echo "💡 Test with: emacsclient -c"
-.PHONY: launchr
-launchr:
-	$(MAKE) -f e.mk launch
 
 
 .PHONY: system
