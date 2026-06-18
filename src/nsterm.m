@@ -317,6 +317,11 @@ static BOOL ns_menu_bar_is_hidden = NO;
 static BOOL send_appdefined = YES;
 #define NO_APPDEFINED_DATA (-8)
 static int last_appdefined_event_data = NO_APPDEFINED_DATA;
+/* The data1 value of the most recently posted appdefined stop-event.
+   [EmacsApp run] uses it to recover when AppKit drops that event (which
+   happens after a fullscreen/maximize transition leaves mainWindow and
+   keyWindow nil — see the recovery branch in -run).  */
+static int last_posted_appdefined_value = NO_APPDEFINED_DATA;
 static NSTimer *timed_entry = 0;
 static NSTimer *scroll_repeat_entry = nil;
 static fd_set select_readfds, select_writefds;
@@ -5027,6 +5032,10 @@ ns_send_appdefined (int value)
       /* We only need one NX_APPDEFINED event to stop NXApp from running.  */
       send_appdefined = NO;
 
+      /* Remember the value so -run can recover if AppKit never delivers
+	 the event back to nextEventMatchingMask.  */
+      last_posted_appdefined_value = value;
+
       /* Don't need wakeup timer any more.  */
       if (timed_entry)
         {
@@ -6240,19 +6249,34 @@ ns_term_shutdown (int sig)
      to nextEventMatchingMask: returns nil immediately causing a 100%
      CPU spin, so we use NSDefaultRunLoopMode.
 
-     Frame maximize can briefly raise a modal window (title-bar sheet,
-     animation context) while an AppDefined event is in flight.  When
-     sendEvent: sees a modal window it defers the AppDefined by setting
-     send_appdefined = YES without calling stop:.  With distantFuture
-     nobody re-posts the AppDefined and the loop hangs forever.  Using
-     a short timeout lets us re-post on each wakeup: ns_send_appdefined
-     is a no-op when send_appdefined is NO, so normal-case cost is one
-     extra ~100 ms wakeup per idle wait — negligible.  */
+     AppKit sometimes drops the posted NSApplicationDefined stop-event so
+     that nextEventMatchingMask: never returns it.  This was observed on
+     macOS 26 after a fullscreen/maximize transition: mainWindow and
+     keyWindow are both left nil, the appdefined event we post (with
+     windowNumber 0) is never delivered, and the daemon hangs forever
+     waiting for it.  Re-posting does not help — freshly posted events
+     are dropped the same way (verified against a live hung daemon); only
+     breaking the loop directly recovers it.
+
+     So we use a finite timeout and, when it expires with a stop-event
+     still in flight, apply the same handling -sendEvent: would and stop
+     the loop ourselves.  "In flight" means send_appdefined == NO (the
+     event was posted but never came back).  We must NOT do this during a
+     genuine ns_select wait, where send_appdefined is YES because we are
+     deliberately blocking until fd_handler or the timeout timer posts the
+     stop-event — drainAndStop, captured at entry, distinguishes the two:
+     the ns_read_socket drain path posts before [NSApp run] (entering with
+     send_appdefined == NO), the ns_select wait path does not.  */
 
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
   if (isFirst) [self finishLaunching];
   isFirst = NO;
+
+  /* YES: entered to drain queued events and return promptly (a stop-event
+     was already posted).  NO: entered to block for input until something
+     posts a stop-event, so a bare timeout must not break the loop.  */
+  BOOL drainAndStop = !send_appdefined;
 
   shouldKeepRunning = YES;
   do
@@ -6260,9 +6284,14 @@ ns_term_shutdown (int sig)
       [pool release];
       pool = [[NSAutoreleasePool alloc] init];
 
+      /* Short timeout while a stop-event is in flight so a dropped event
+	 is recovered quickly; longer otherwise to limit idle wakeups.  */
+      NSTimeInterval timeout =
+	(drainAndStop || !send_appdefined) ? 0.05 : 0.5;
+
       NSEvent *event =
         [self nextEventMatchingMask:NSEventMaskAny
-                          untilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]
+                          untilDate:[NSDate dateWithTimeIntervalSinceNow:timeout]
                              inMode:NSDefaultRunLoopMode
                             dequeue:YES];
 
@@ -6271,11 +6300,16 @@ ns_term_shutdown (int sig)
 	  [self sendEvent:event];
 	  [self updateWindows];
 	}
-      else if (send_appdefined)
+      else if ((drainAndStop || !send_appdefined)
+	       && [NSApp modalWindow] == nil)
 	{
-	  /* AppDefined was deferred (modal window present in sendEvent:).
-	     Re-post now that the modal may have cleared.  */
-	  ns_send_appdefined (-1);
+	  /* Timed out with the stop-event undelivered: AppKit dropped it
+	     (see the comment above).  Mirror what -sendEvent: does for an
+	     appdefined event and break the loop directly.  Skipped while a
+	     modal window is up, since stopping would also end its
+	     runModalForWindow: loop.  */
+	  last_appdefined_event_data = last_posted_appdefined_value;
+	  [self stop:self];
 	}
     } while (shouldKeepRunning);
 
