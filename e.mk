@@ -1,7 +1,7 @@
 # Makefile for building Emacs.app on macOS
 OS := $(shell uname)
 EMACS_PREFIX ?= $(HOME)/.local/emacs
-JOBS ?= $(shell sysclt -n hw.ncpu 2>/dev/null || nproc)
+JOBS ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc)
 BREW := $(shell command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)
 
 .PHONY: all Darwin Linux deps configure build codesign
@@ -71,8 +71,8 @@ configure:
 	            --prefix=$(EMACS_PREFIX)
 
 build:
-	@echo "🔨 Building Emacs.app with $(EMACS_CORES) cores..."
-	make -j$(EMACS_CORES)
+	@echo "🔨 Building Emacs.app with $(JOBS) cores..."
+	make -j$(JOBS)
 	@echo "✅ Emacs.app built"
 	make install
 	@echo "✅ Emacs.app installed"
@@ -262,19 +262,19 @@ brew-bin:
 launch:
 	mkdir -p $(HOME)/Library/LaunchAgents/
 	cp $(CURDIR)/a/daemon/e.plist $(CURDIR)/a/daemon/ec.plist $(HOME)/Library/LaunchAgents/
-	@echo "🚀 Starting Emacs daemon..."
-	@launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/e.plist 2>/dev/null || true
-	@launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/ec.plist 2>/dev/null || true
-	@launchctl enable gui/$$(id -u)/local.emacs.daemon
+	@echo "🚀 Restarting Emacs daemon and client LaunchAgents..."
+	@launchctl bootout gui/$$(id -u) $(HOME)/Library/LaunchAgents/ec.plist 2>/dev/null || true
+	@launchctl bootout gui/$$(id -u) $(HOME)/Library/LaunchAgents/e.plist 2>/dev/null || true
+	@launchctl bootstrap gui/$$(id -u) $(HOME)/Library/LaunchAgents/e.plist
+	@launchctl bootstrap gui/$$(id -u) $(HOME)/Library/LaunchAgents/ec.plist
+	@launchctl enable gui/$$(id -u)/em
+	@launchctl enable gui/$$(id -u)/ec
 	@sleep 2
-	@echo "✅ Emacs daemon started!"
+	@echo "✅ Emacs daemon and client LaunchAgents started"
 	@echo "💡 Test with: emacsclient -c"
 .PHONY: launchr
 launchr:
-	launchctl bootout gui/$$(id -u) ~/Library/LaunchAgents/e.plist 2>/dev/null || true
-	launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/e.plist
-	launchctl bootout gui/$$(id -u) ~/Library/LaunchAgents/ec.plist 2>/dev/null || true
-	launchctl bootstrap gui/$$(id -u) ~/Library/LaunchAgents/ec.plist
+	$(MAKE) -f e.mk launch
 
 
 .PHONY: system
