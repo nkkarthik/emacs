@@ -4,13 +4,13 @@ EMACS_PREFIX ?= $(HOME)/.local/emacs
 JOBS ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc)
 BREW := $(shell command -v brew 2>/dev/null || echo /opt/homebrew/bin/brew)
 
-.PHONY: all Darwin Linux deps configure build codesign
+.PHONY: all Darwin Linux deps python-deps configure build codesign
 
 
 all: $(OS)
 
 
-Darwin: deps tree-sitter-src configure build
+Darwin: deps python-deps tree-sitter-src configure build
 
 
 deps: brew-check
@@ -33,6 +33,10 @@ deps: brew-check
 	npm install -g typescript-language-server typescript \
 	               vscode-langservers-extracted \
 	               dockerfile-language-server-nodejs
+
+python-deps:
+	@echo "🐍 Installing a/llm Python dependencies..."
+	pip3 install -r a/llm/requirements.txt
 
 brew-check:
 	@echo "🔍 Checking if Homebrew is available..."
@@ -173,7 +177,7 @@ vterm-module:
 # Ubuntu 24's libtree-sitter-dev (0.20.8-2) caps Emacs at ABI 14
 # and several grammars (tree-sitter-python v0.25.0+, etc.) now
 # require ABI 15.
-Linux: ldeps tree-sitter-src vterm-module
+Linux: ldeps python-deps tree-sitter-src vterm-module
 	./autogen.sh
 	LDFLAGS="-L/usr/lib/gcc/x86_64-linux-gnu/13" \
 	CPPFLAGS="-I/usr/lib/gcc/x86_64-linux-gnu/13/include" \
