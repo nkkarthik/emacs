@@ -137,6 +137,11 @@ install-a: vterm-module
 		--exclude='build/' \
 		$(CURDIR)/a/ $(NS_APPRESDIR)/site-lisp/
 	@echo "✅ rsync'd a/ -> $(NS_APPRESDIR)/site-lisp/ (excluded data/docs/tests/.elc)"
+	rsync -a \
+		--exclude='.git*' --exclude='*.org' --exclude='*~' \
+		--exclude='doc/' --exclude='tests/' \
+		$(CURDIR)/x/org-roam/ $(NS_APPRESDIR)/site-lisp/org-roam/
+	@echo "✅ rsync'd x/org-roam -> site-lisp/org-roam/"
 	@# Expose the bundle's site-lisp to the uninstalled src/emacs binary
 	@# (and any daemon launched from it via brew-bin/local-bin) by
 	@# symlinking it adjacent to lisp/ at the build root.  Without this
