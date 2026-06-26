@@ -7,3 +7,6 @@
 [submodule "x/org-roam"]
 	path = x/org-roam
 	url = https://github.com/org-roam/org-roam.git
+[submodule "x/ds4"]
+	path = x/ds4
+	url = https://github.com/nkkarthik/ds4
