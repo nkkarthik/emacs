@@ -132,7 +132,7 @@ endif
 .PHONY: install-a site-lisp-sync
 install-a: site-lisp-sync
 	@emacsclient --no-wait -e \
-	  '(dolist (f (file-expand-wildcards "$(CURDIR)/a/k8s/k8s*.el")) (load f nil t t))' \
+	  '(dolist (f (file-expand-wildcards "$(CURDIR)/a/util/k8s/k8s*.el")) (load f nil t t))' \
 	  2>/dev/null && echo "✅ reloaded k8s in running Emacs" || true
 
 site-lisp-sync: vterm-module
