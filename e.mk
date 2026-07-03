@@ -8,7 +8,7 @@ UBUNTU_INSTALLER := ./a/os/linux/ubuntu/install.sh
 FEDORA_INSTALLER := ./a/os/linux/fedora/install.sh
 PLATFORM_INSTALLER := ./a/os/install.sh
 
-.PHONY: all Darwin Linux kws deps ldeps python-deps tree-sitter-src \
+.PHONY: all Darwin Linux kws deps ldeps python-deps tree-sitter-src syncthing \
 	configure build codesign vterm-module install-a site-lisp-sync userdir \
 	local-bin brew-bin launch system brew-check brew-install help
 
@@ -35,6 +35,9 @@ python-deps:
 
 tree-sitter-src:
 	$(PLATFORM_INSTALLER) tree-sitter
+
+syncthing:
+	$(PLATFORM_INSTALLER) syncthing
 
 configure:
 	$(PLATFORM_INSTALLER) configure
