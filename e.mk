@@ -3,7 +3,7 @@
 # New code belongs in the platform scripts under a/os/.  Existing commands such
 # as `make -f e.mk install-a` continue to work while callers migrate.
 
-DARWIN_INSTALLER := ./a/os/darwin/arm/install.sh
+DARWIN_INSTALLER := ./a/os/install.sh
 UBUNTU_INSTALLER := ./a/os/linux/ubuntu/install.sh
 FEDORA_INSTALLER := ./a/os/linux/fedora/install.sh
 PLATFORM_INSTALLER := ./a/os/install.sh
