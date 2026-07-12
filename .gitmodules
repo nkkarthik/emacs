@@ -10,3 +10,6 @@
 [submodule "x/syncthing"]
 	path = x/syncthing
 	url = https://github.com/syncthing/syncthing.git
+[submodule "x/SwiftTerm"]
+	path = x/SwiftTerm
+	url = git@github.com:nkkarthik/SwiftTerm.git
