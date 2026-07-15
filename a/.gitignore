@@ -2,6 +2,7 @@
 *.key
 *~
 *.sock
+screen/
 
 # Xcode
 *.xcodeproj/xcuserdata/
