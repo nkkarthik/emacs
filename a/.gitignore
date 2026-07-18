@@ -59,3 +59,6 @@ fastlane/Preview.html
 
 # Crashlytics
 Crashlytics.framework/
+
+# Local Android source mirror
+k/sys/android/src/

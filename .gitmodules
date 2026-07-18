@@ -13,3 +13,6 @@
 [submodule "x/SwiftTerm"]
 	path = x/SwiftTerm
 	url = git@github.com:nkkarthik/SwiftTerm.git
+[submodule "x/termux-app"]
+	path = x/termux-app
+	url = https://github.com/termux/termux-app.git
