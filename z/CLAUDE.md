@@ -26,18 +26,34 @@ daemon health checks:
 
 30s timer for book; 5min for remote (SSH latency).
 
-** infrastructure — known state (2026-07-18)
+** infrastructure — known state (2026-07-19)
 
 *z daemon*
 - socket name =z=; start: =emacs --fg-daemon=z --no-init-file -l a/mac/book/z-init.el=
 - launchd: =~/Library/LaunchAgents/z.plist= installed (rendered from =a/os/darwin/launchd/z.plist.in=)
 - =launchctl load= status: UNVERIFIED (was denied permission); user must confirm after reboot
 - check socket: =emacsclient --socket-name z --timeout 3 -e '(emacs-version)'=
+- loaded at runtime: =z-status-writer.el=, =z-task-poller.el=, =z-screen-watch.el= (=a/mac/book/=)
+  - status writer: pushes =kai-board-state= to =k.local:7700/status-push= after each render
+  - task poller: polls =k.local:7700/tasks= every 30s, dispatches via =codex-run=
+  - screen watch: FSEvents on =~/e/a/screen/=; auto-copies latest PNG to =snap.png= on new file
 
-*zterm app* (=a/mac/z/=)
-- binary at =~/Applications/zterm.app= (built 2026-07-18 via =scripts/build-app.sh=)
-- Login Item: NOT registered — osascript persistence blocked by both Claude + Codex policy
-- user must add manually: System Settings → General → Login Items → + → =~/Applications/zterm.app=
+*z app fleet* — three form factors, same system:
+| platform | binary               | source          | status (2026-07-19)          |
+|----------+----------------------+-----------------+------------------------------|
+| macOS    | =/Applications/z.app= | =a/mac/z/=      | ✓ installed; Cmd+V paste, Cmd+Z screenshot→ping |
+| iOS      | =com.nkkarthik.z=    | =a/ios/z/=      | ✓ on kPhone; k.local→Tailscale fallback |
+| watchOS  | =com.nkkarthik.z.watch= | =a/ios/z/=   | built; kWatch connection pending |
+
+- macOS Cmd+Z: screenshot → =~/e/a/screen/= → =emacsclient -e '(z-ping-screen)'= → =snap.png= updated
+- macOS screenshot shortcut (global): =⌃⌘Z= via Shortcuts.app (z-ss shortcut)
+- iOS/watchOS connect to =k.local:7700= (WiFi first, Tailscale fallback); token in =~/.z-token=
+
+*z-server* (=a/k/z-server.py=, k.local port 7700)
+- running: pid verified live; UFW: =7700/tcp ALLOW IN Anywhere= (covers WiFi + Tailscale)
+- endpoints: =GET /status=, =POST /status-push=, =GET /tasks=, =POST /task=, =GET /ping=
+- token: =f42e2132aaa4a1fe841e5d0d2f875552= (also in =~/.z-token= on k.local)
+- NOT daemonized yet — must restart manually after k.local reboot
 
 *main emacs daemon*: standard socket (no name), managed by =~/Library/LaunchAgents/e.plist=.
 
