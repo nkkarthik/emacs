@@ -2,6 +2,7 @@
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'z-remote nil t)
 
 ;;; --- config ---
 (defvar z--status "idle")
@@ -149,7 +150,8 @@
                           (format "%.0fs" (max 0 (- z-ping--next (float-time))))
                         "off")))
       (insert sep)
-      (insert (propertize "g refresh  h health  r remote  c claude  q quit\n" 'face 'shadow)))))
+      (insert (propertize "g refresh  h health  r remote  c claude  q quit\n" 'face 'shadow))))
+  (when (fboundp 'z-remote-push-status) (z-remote-push-status)))
 
 ;;; --- mode ---
 (define-derived-mode z-mode special-mode "Z"
@@ -191,6 +193,7 @@
   (unless (and z--remote-timer (timerp z--remote-timer))
     (setq z--remote-timer (run-with-timer 60 300 #'z--refresh-remote)))
   (z-ping-start)
+  (when (fboundp 'z-remote-start) (z-remote-start))
   (z-show))
 
 (defun z-open-claude ()
