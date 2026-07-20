@@ -1,0 +1,9 @@
+!Makefile
+.libs/
+*.lo
+*.la
+*.a
+bin/unterm
+bin/vterm-ctrl
+bin/vterm-dump
+t/run-test
