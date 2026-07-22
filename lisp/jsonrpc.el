@@ -265,7 +265,7 @@ circumvent that.")
   "Process FOREIGN-MESSAGE just received from CONN.
 This function will destructure MESSAGE and call the appropriate
 dispatcher in CONN."
-  (cl-destructuring-bind (&rest whole &key method id error params result _jsonrpc)
+  (cl-destructuring-bind (&rest whole &key method id error params result _jsonrpc &allow-other-keys)
       (jsonrpc-convert-from-endpoint conn foreign-message)
     (unwind-protect
         (let* ((log-plist (list :json (plist-get foreign-message :jsonrpc-json)
