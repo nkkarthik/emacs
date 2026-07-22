@@ -551,8 +551,12 @@ See `server-unquote-arg' and `server-process-filter'."
 
 (defun server-send-string (proc string)
   "A wrapper around `process-send-string' for logging."
-  (server-log (concat "Sent " string) proc)
-  (process-send-string proc string))
+  (if (process-live-p proc)
+      (progn
+        (server-log (concat "Sent " string) proc)
+        (process-send-string proc string))
+    (server-log "Dropped output for disconnected client" proc)
+    nil))
 
 (defun server-ensure-safe-dir (dir)
   "Make sure DIR is a directory with no race-condition issues.
@@ -1159,8 +1163,9 @@ The following commands are accepted by the client:
   ;; we should arguably use a "true" O(N) queue, but N is bounded by
   ;; the number of concurrent emacsclient requests, so we should hopefully
   ;; never see really large values of N.
-  (setq server--process-filter-pending
-        (nconc server--process-filter-pending (list (cons proc string))))
+  (when (process-live-p proc)
+    (setq server--process-filter-pending
+          (nconc server--process-filter-pending (list (cons proc string)))))
   ;; Since our process filter sometimes needs to wait with `sit-for',
   ;; we need to be careful to try and avoid nested process filters
   ;; eating up the stack, so we use `server--process-filter-active&pending'
@@ -1174,7 +1179,8 @@ The following commands are accepted by the client:
     (unwind-protect
         (while server--process-filter-pending
           (let* ((oldest (pop server--process-filter-pending)))
-            (server--process-filter-1 (car oldest) (cdr oldest))))
+            (when (process-live-p (car oldest))
+              (server--process-filter-1 (car oldest) (cdr oldest)))))
       ;; In case we're exiting early (e.g. for `server-goto-toplevel'),
       ;; make sure we continue running the other pending filters.
       (when server--process-filter-pending
@@ -1185,10 +1191,9 @@ The following commands are accepted by the client:
   ;; some `message-sit-for' call which returns immediately while making sure
   ;; the message is visible for TIME seconds.
   (apply #'message args)
-  ;; If there's already another process-filter pending, skip `sit-for',
-  ;; just as it does when there's pending user input.
-  (unless (consp server--process-filter-pending)
-    (sit-for time)))
+  ;; A client error must never pause the editor's only UI thread.  Keep TIME
+  ;; in the signature for compatibility with older callers.
+  (ignore time))
 
 (cl-defun server--process-filter-1 (proc string)
   (server-log (concat "Received " string) proc)

@@ -391,3 +391,9 @@ exec/config.h.in
 exec/config-mips.m4
 exec/configure
 exec/*.s.s
+
+# Provisioned locally for the z iOS SSH client; never publish private keys.
+/z/ios/Sources/z/z_ios_key
+
+# Scratch handoff drafts; authoritative tasks and messages live in z-server.
+/z/tmp/

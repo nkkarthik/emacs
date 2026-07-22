@@ -3108,10 +3108,14 @@ read_char (int commandflag, Lisp_Object map,
 
   if (!NILP (tem))
     {
+      specpdl_ref count = SPECPDL_INDEX ();
       struct buffer *prev_buffer = current_buffer;
       last_input_event = c;
 
+      if (IS_DAEMON)
+	specbind (intern_c_string ("inhibit-interaction"), Qt);
       calln (Qcommand_execute, tem, Qnil, Fvector (1, &last_input_event), Qt);
+      unbind_to (count, Qnil);
 
       if (CONSP (c) && !NILP (Fmemq (XCAR (c), Vwhile_no_input_ignore_events))
 	  && !end_time)
@@ -4870,6 +4874,8 @@ timer_check_2 (Lisp_Object timers, Lisp_Object idle_timers)
 	      ASET (chosen_timer, 0, Qt);
 
 	      specbind (Qinhibit_quit, Qt);
+	      if (IS_DAEMON)
+		specbind (intern_c_string ("inhibit-interaction"), Qt);
 
 	      calln (Qtimer_event_handler, chosen_timer);
 	      Vdeactivate_mark = old_deactivate_mark;

@@ -228,4 +228,30 @@ long as this works, the problem in bug#58877 shouldn't occur."
     (mapc (lambda (frame) (delete-frame frame t))
           (cl-set-difference (frame-list) starting-frames))))
 
+(ert-deftest server-tests/client-message-never-sits-for ()
+  (let (waited)
+    (cl-letf (((symbol-function 'message) #'ignore)
+              ((symbol-function 'sit-for)
+               (lambda (&rest _) (setq waited t))))
+      (server--message-sit-for 2 "client error"))
+    (should-not waited)))
+
+(ert-deftest server-tests/disconnected-client-output-is-dropped ()
+  (let (sent)
+    (cl-letf (((symbol-function 'process-live-p) (lambda (_proc) nil))
+              ((symbol-function 'process-send-string)
+               (lambda (&rest _) (setq sent t))))
+      (should-not (server-send-string 'disconnected "output")))
+    (should-not sent)))
+
+(ert-deftest server-tests/disconnected-pending-client-is-skipped ()
+  (let ((server--process-filter-pending '((disconnected . "request")))
+        processed)
+    (cl-letf (((symbol-function 'process-live-p) (lambda (_proc) nil))
+              ((symbol-function 'server--process-filter-1)
+               (lambda (&rest _) (setq processed t))))
+      (server--process-filter-all-pending))
+    (should-not processed)
+    (should-not server--process-filter-pending)))
+
 ;;; server-tests.el ends here
