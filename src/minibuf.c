@@ -1291,9 +1291,7 @@ minibuffer_unwind (void)
 void
 barf_if_interaction_inhibited (void)
 {
-  /* A prompt started by a process filter or sentinel can capture a
-     daemon's only Lisp thread with no visible client able to answer it.  */
-  if (inhibit_interaction || (IS_DAEMON && running_asynch_code))
+  if (inhibit_interaction)
     xsignal0 (Qinhibited_interaction);
 }
 
@@ -1345,9 +1343,6 @@ If the variable `minibuffer-allow-text-properties' is non-nil
 
 If `inhibit-interaction' is non-nil, this function will signal an
   `inhibited-interaction' error.
-
-In a daemon, process filters and sentinels also signal
-  `inhibited-interaction' instead of reading unattended input.
 
 The remainder of this documentation string describes the
 INITIAL-CONTENTS argument in more detail.  It is only relevant when
