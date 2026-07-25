@@ -397,3 +397,19 @@ exec/*.s.s
 
 # Scratch handoff drafts; authoritative tasks and messages live in z-server.
 /z/tmp/
+
+# Trained data never belongs in the repo. Weights, adapters, checkpoints and
+# conversion output live under ~/z (see the storage convention in z/CLAUDE.md);
+# caches live under XDG dirs. A script that defaults its output into ~/e is a
+# bug to fix, not something to ignore around. These patterns are a backstop:
+# k.local once accumulated 91GB of models/ inside ~/e, one `git add -A` away
+# from entering history, where it could not be removed without a rewrite.
+models/
+adapters/
+checkpoints/
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.ckpt
+*.onnx
