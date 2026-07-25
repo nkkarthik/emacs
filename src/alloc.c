@@ -48,6 +48,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "pdumper.h"
 #include "termhooks.h"		/* For struct terminal.  */
 #include "itree.h"
+#ifdef HAVE_ZMETRICS
+# include "zmetrics.h"
+#endif
 #ifdef HAVE_WINDOW_SYSTEM
 #include TERM_HEADER
 #endif /* HAVE_WINDOW_SYSTEM */
@@ -5804,6 +5807,9 @@ garbage_collect (void)
 			: (byte_ct) -1);
 
   start = current_timespec ();
+#ifdef HAVE_ZMETRICS
+  zmetrics_gc_begin ();
+#endif
 
   /* In case user calls debug_print during GC,
      don't let that cause a recursive GC.  */
@@ -5938,6 +5944,9 @@ garbage_collect (void)
   unmark_main_thread ();
 
   gc_in_progress = 0;
+#ifdef HAVE_ZMETRICS
+  zmetrics_gc_end ();
+#endif
 
   consing_until_gc = gc_threshold
     = consing_threshold (gc_cons_threshold, Vgc_cons_percentage, 0);

@@ -8,6 +8,12 @@ UBUNTU_INSTALLER := ./a/os/linux/ubuntu/install.sh
 FEDORA_INSTALLER := ./a/os/linux/fedora/install.sh
 PLATFORM_INSTALLER := ./a/os/install.sh
 
+ZMETRICS ?= 0
+ifeq ($(filter $(ZMETRICS),0 1),)
+$(error ZMETRICS must be 0 or 1)
+endif
+export ZMETRICS
+
 .PHONY: all install Darwin Linux kws deps ldeps python-deps tree-sitter-src syncthing \
 	syncthing-service configure build codesign vterm-module install-a site-lisp-sync userdir \
 	local-bin brew-bin launch system brew-check brew-install help
@@ -80,3 +86,7 @@ brew-install:
 
 help:
 	$(PLATFORM_INSTALLER) --help
+	@printf '%s\n' \
+	  '' \
+	  'Optional build flags:' \
+	  '  ZMETRICS=1       Build the loopback Emacs Prometheus endpoint (default: 0)'

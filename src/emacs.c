@@ -114,6 +114,10 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "sysselect.h"
 #include "systime.h"
 
+#ifdef HAVE_ZMETRICS
+# include "zmetrics.h"
+#endif
+
 #include "getpagesize.h"
 #include "gnutls.h"
 
@@ -3471,6 +3475,9 @@ from the parent process and its tty file descriptors.  */)
 
   if (err)
     error ("I/O error during daemon initialization");
+#ifdef HAVE_ZMETRICS
+  zmetrics_start ();
+#endif
   return Qt;
 }
 

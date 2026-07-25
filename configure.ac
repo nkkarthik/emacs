@@ -594,6 +594,8 @@ OPTION_DEFAULT_ON([gnutls],[don't use -lgnutls for SSL/TLS support])
 OPTION_DEFAULT_ON([zlib],[don't compile with zlib decompression support])
 OPTION_DEFAULT_ON([modules],[don't compile with dynamic modules support])
 OPTION_DEFAULT_ON([threads],[don't compile with elisp threading support])
+OPTION_DEFAULT_OFF([zmetrics],
+  [serve Emacs daemon health and Prometheus metrics on loopback])
 OPTION_DEFAULT_OFF([cygwin32-native-compilation],[use native compilation on 32-bit Cygwin])
 OPTION_DEFAULT_ON([xinput2],[don't use version 2 of the X Input Extension for input])
 OPTION_DEFAULT_OFF([small-ja-dic],[generate a smaller-size Japanese dictionary])
@@ -3483,6 +3485,22 @@ if test "$with_threads" = yes; then
    fi
 fi
 AC_MSG_RESULT([$threads_enabled])
+
+ZMETRICS_OBJ=
+HAVE_ZMETRICS=no
+AS_CASE([$with_zmetrics],
+  [yes],
+    [AS_IF([test "$threads_enabled" != yes || test "$emacs_cv_pthread_lib" = no],
+       [AC_MSG_ERROR([--with-zmetrics requires POSIX thread support])])
+     AS_IF([test "$opsys" = mingw32],
+       [AC_MSG_ERROR([--with-zmetrics is not implemented on native MS-Windows])])
+     AC_DEFINE([HAVE_ZMETRICS], [1],
+       [Define to 1 to build the Emacs Prometheus metrics endpoint.])
+     ZMETRICS_OBJ=zmetrics.o
+     HAVE_ZMETRICS=yes],
+  [no], [],
+  [AC_MSG_ERROR([--with-zmetrics accepts only yes or no])])
+AC_SUBST([ZMETRICS_OBJ])
 
 dnl Check for need for bigtoc support on IBM AIX
 
@@ -7637,7 +7655,7 @@ for opt in ACL BE_APP CAIRO DBUS FREETYPE GCONF GIF GLIB GMP GNUTLS GPM GSETTING
  M17N_FLT MODULES NATIVE_COMP NOTIFY NS OLDXMENU PDUMPER PGTK PNG RSVG SECCOMP \
  SOUND SQLITE3 THREADS TIFF TOOLKIT_SCROLL_BARS TREE_SITTER \
  UNEXEC WEBP X11 XAW3D XDBE XFT XIM XINERAMA XINPUT2 XPM XRANDR XWIDGETS \
- X_TOOLKIT ZLIB; do
+ X_TOOLKIT ZLIB ZMETRICS; do
 
     case $opt in
       PDUMPER) val=${with_pdumper} ;;
@@ -7646,6 +7664,7 @@ for opt in ACL BE_APP CAIRO DBUS FREETYPE GCONF GIF GLIB GMP GNUTLS GPM GSETTING
       NOTIFY|ACL) eval val=\${${opt}_SUMMARY} ;;
       TOOLKIT_SCROLL_BARS|X_TOOLKIT) eval val=\${USE_$opt} ;;
       THREADS) val=${threads_enabled} ;;
+      ZMETRICS) val=${HAVE_ZMETRICS} ;;
       *) eval val=\${HAVE_$opt} ;;
     esac
     case x$val in
@@ -7716,6 +7735,7 @@ AS_ECHO(["  Does Emacs use -lXaw3d?                                 ${HAVE_XAW3D
   Does Emacs use toolkit scroll bars?                     ${USE_TOOLKIT_SCROLL_BARS}
   Does Emacs support Xwidgets?                            ${HAVE_XWIDGETS}
   Does Emacs have threading support in lisp?              ${threads_enabled}
+  Does Emacs expose loopback Prometheus metrics?          ${HAVE_ZMETRICS}
   Does Emacs support the portable dumper?                 ${with_pdumper}
   Which dumping strategy does Emacs use?                  ${with_dumping}
   Does Emacs have native lisp compiler?                   ${HAVE_NATIVE_COMP}
