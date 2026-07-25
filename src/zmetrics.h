@@ -22,5 +22,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 extern void zmetrics_start (void);
 extern void zmetrics_gc_begin (void);
 extern void zmetrics_gc_end (void);
+extern void zmetrics_main_thread_wait_begin (void);
+extern void zmetrics_main_thread_wait_end (void);
 
 #endif /* EMACS_ZMETRICS_H */

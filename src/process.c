@@ -115,6 +115,9 @@ static struct rlimit nofile_limit;
 #include "sysselect.h"
 #include "syssignal.h"
 #include "syswait.h"
+#ifdef HAVE_ZMETRICS
+# include "zmetrics.h"
+#endif
 #ifdef HAVE_GNUTLS
 #include "gnutls.h"
 #endif
@@ -5795,6 +5798,12 @@ wait_reading_process_output (intmax_t time_limit, int nsecs, int read_kbd,
 	    timeout = short_timeout;
 #endif
 
+#ifdef HAVE_ZMETRICS
+	  /* READ_KBD < 0 is the responsive command-loop input wait.  */
+	  if (read_kbd < 0)
+	    zmetrics_main_thread_wait_begin ();
+#endif
+
 	  /* Android requires using a replacement for pselect in
 	     android.c to poll for events.  */
 #if defined HAVE_ANDROID && !defined ANDROID_STUBIFY
@@ -5828,6 +5837,11 @@ wait_reading_process_output (intmax_t time_limit, int nsecs, int read_kbd,
 				NULL, &timeout, NULL);
 #endif	/* !HAVE_GLIB */
 #endif /* HAVE_ANDROID && !ANDROID_STUBIFY */
+
+#ifdef HAVE_ZMETRICS
+	  if (read_kbd < 0)
+	    zmetrics_main_thread_wait_end ();
+#endif
 
 #ifdef HAVE_GNUTLS
 	  /* Merge tls_available into Available. */

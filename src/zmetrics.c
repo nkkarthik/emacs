@@ -33,7 +33,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <unistd.h>
 
 #include "lisp.h"
-#include "atimer.h"
 #include "systhread.h"
 #include "systime.h"
 
@@ -52,6 +51,11 @@ static uint64_t zmetrics_checkpoint_count;
 static uint64_t zmetrics_observer_ns;
 static uint64_t zmetrics_recursive_edit_depth;
 static uint64_t zmetrics_minibuffer_depth;
+static uint64_t zmetrics_lisp_eval_depth;
+static uint64_t zmetrics_waiting_for_input;
+static uint64_t zmetrics_nested_input_wait;
+static uint64_t zmetrics_nested_input_wait_started_ns;
+static intmax_t zmetrics_input_wait_eval_depth = INTMAX_MAX;
 static uint64_t zmetrics_gc_started_ns;
 static uint64_t zmetrics_gc_count;
 static uint64_t zmetrics_gc_total_ns;
@@ -79,20 +83,70 @@ zmetrics_store (uint64_t *value, uint64_t new_value)
   __atomic_store_n (value, new_value, __ATOMIC_RELAXED);
 }
 
+/* A periodic atimer is not a liveness probe: Emacs services native atimers
+   while Lisp is stuck in such synchronous calls as `call-process'.  Observe
+   transitions into the real input wait instead.  The minimum evaluation depth
+   seen there is the outer command loop; a deeper input wait is a prompt (or
+   equivalent read) entered from active Lisp and must not reset the stall age.  */
 static void
-zmetrics_checkpoint (struct atimer *timer)
+zmetrics_observe_main_thread (bool input_wait_active,
+			      bool reset_checkpoint)
 {
-  (void) timer;
   uint64_t before = zmetrics_now_ns ();
-  zmetrics_store (&zmetrics_checkpoint_ns, before);
+  intmax_t eval_depth = lisp_eval_depth;
+  bool nested_input_wait = false;
+
+  if (input_wait_active)
+    {
+      if (eval_depth < zmetrics_input_wait_eval_depth)
+	zmetrics_input_wait_eval_depth = eval_depth;
+      nested_input_wait
+	= (eval_depth > zmetrics_input_wait_eval_depth
+	   || command_loop_level > 0 || minibuf_level > 0);
+    }
+
+  if (reset_checkpoint && !nested_input_wait)
+    {
+      zmetrics_store (&zmetrics_checkpoint_ns, before);
+      __atomic_fetch_add (&zmetrics_checkpoint_count, 1, __ATOMIC_RELAXED);
+    }
   zmetrics_store (&zmetrics_recursive_edit_depth,
 		  command_loop_level < 0 ? 0 : command_loop_level);
   zmetrics_store (&zmetrics_minibuffer_depth,
 		  minibuf_level < 0 ? 0 : minibuf_level);
-  __atomic_fetch_add (&zmetrics_checkpoint_count, 1, __ATOMIC_RELAXED);
+  zmetrics_store (&zmetrics_lisp_eval_depth,
+		  eval_depth < 0 ? 0 : eval_depth);
+
+  if (nested_input_wait)
+    {
+      if (!zmetrics_load (&zmetrics_nested_input_wait))
+	zmetrics_store (&zmetrics_nested_input_wait_started_ns, before);
+      zmetrics_store (&zmetrics_nested_input_wait, 1);
+    }
+  else if (input_wait_active)
+    {
+      zmetrics_store (&zmetrics_nested_input_wait, 0);
+      zmetrics_store (&zmetrics_nested_input_wait_started_ns, 0);
+    }
+
   uint64_t after = zmetrics_now_ns ();
   __atomic_fetch_add (&zmetrics_observer_ns, after - before,
 		      __ATOMIC_RELAXED);
+  zmetrics_store (&zmetrics_waiting_for_input,
+		  input_wait_active && !nested_input_wait);
+}
+
+void
+zmetrics_main_thread_wait_begin (void)
+{
+  zmetrics_observe_main_thread (true, true);
+}
+
+void
+zmetrics_main_thread_wait_end (void)
+{
+  bool responsive_wait = zmetrics_load (&zmetrics_waiting_for_input);
+  zmetrics_observe_main_thread (false, responsive_wait);
 }
 
 void
@@ -174,14 +228,21 @@ zmetrics_render_metrics (char *output, size_t capacity)
   struct zmetrics_buffer buffer = { output, capacity, 0 };
   uint64_t now = zmetrics_now_ns ();
   uint64_t checkpoint = zmetrics_load (&zmetrics_checkpoint_ns);
-  uint64_t age = checkpoint <= now ? now - checkpoint : 0;
+  bool input_wait_active = zmetrics_load (&zmetrics_waiting_for_input);
+  uint64_t age
+    = input_wait_active || checkpoint > now ? 0 : now - checkpoint;
+  uint64_t nested_input_wait_started
+    = zmetrics_load (&zmetrics_nested_input_wait_started_ns);
+  uint64_t nested_input_wait_age
+    = (nested_input_wait_started && nested_input_wait_started <= now
+       ? now - nested_input_wait_started : 0);
 
 #define ZMETRICS_TEXT(text) zmetrics_append (&buffer, text)
 #define ZMETRICS_VALUE(name, value) \
   zmetrics_append (&buffer, name " %llu\n", (unsigned long long) (value))
 
   ZMETRICS_TEXT
-    ("# HELP emacs_main_thread_checkpoint_age_seconds Seconds since the Lisp/UI thread last reached its native observer checkpoint.\n"
+    ("# HELP emacs_main_thread_checkpoint_age_seconds Seconds the Lisp/UI thread has spent away from its responsive input wait.\n"
      "# TYPE emacs_main_thread_checkpoint_age_seconds gauge\n");
   zmetrics_metric_seconds (&buffer, "emacs_main_thread_checkpoint_age_seconds",
 			   age);
@@ -194,7 +255,7 @@ zmetrics_render_metrics (char *output, size_t capacity)
     ("# HELP emacs_main_thread_stall_threshold_seconds Checkpoint age that marks the Lisp/UI thread stalled.\n"
      "# TYPE emacs_main_thread_stall_threshold_seconds gauge\n"
      "emacs_main_thread_stall_threshold_seconds 3\n"
-     "# HELP emacs_main_thread_checkpoints_total Native observer checkpoints completed by the Lisp/UI thread.\n"
+     "# HELP emacs_main_thread_checkpoints_total Responsive input-wait transitions observed on the Lisp/UI thread.\n"
      "# TYPE emacs_main_thread_checkpoints_total counter\n");
   ZMETRICS_VALUE ("emacs_main_thread_checkpoints_total",
 		  zmetrics_load (&zmetrics_checkpoint_count));
@@ -203,6 +264,11 @@ zmetrics_render_metrics (char *output, size_t capacity)
      "# TYPE emacs_main_thread_observer_seconds_total counter\n");
   zmetrics_metric_seconds (&buffer, "emacs_main_thread_observer_seconds_total",
 			   zmetrics_load (&zmetrics_observer_ns));
+  ZMETRICS_TEXT
+    ("# HELP emacs_main_thread_waiting_for_input Whether the Lisp/UI thread is in its responsive input wait.\n"
+     "# TYPE emacs_main_thread_waiting_for_input gauge\n");
+  ZMETRICS_VALUE ("emacs_main_thread_waiting_for_input",
+		  input_wait_active);
   ZMETRICS_TEXT
     ("# HELP emacs_lisp_recursive_edit_depth Current recursive command-loop depth.\n"
      "# TYPE emacs_lisp_recursive_edit_depth gauge\n");
@@ -213,6 +279,21 @@ zmetrics_render_metrics (char *output, size_t capacity)
      "# TYPE emacs_lisp_minibuffer_depth gauge\n");
   ZMETRICS_VALUE ("emacs_lisp_minibuffer_depth",
 		  zmetrics_load (&zmetrics_minibuffer_depth));
+  ZMETRICS_TEXT
+    ("# HELP emacs_lisp_eval_depth Lisp evaluation depth at the latest input-wait transition.\n"
+     "# TYPE emacs_lisp_eval_depth gauge\n");
+  ZMETRICS_VALUE ("emacs_lisp_eval_depth",
+		  zmetrics_load (&zmetrics_lisp_eval_depth));
+  ZMETRICS_TEXT
+    ("# HELP emacs_lisp_nested_input_wait Whether Lisp entered a prompt or input wait from inside active evaluation.\n"
+     "# TYPE emacs_lisp_nested_input_wait gauge\n");
+  ZMETRICS_VALUE ("emacs_lisp_nested_input_wait",
+		  zmetrics_load (&zmetrics_nested_input_wait));
+  ZMETRICS_TEXT
+    ("# HELP emacs_lisp_nested_input_wait_seconds Seconds spent in the current nested prompt or input wait.\n"
+     "# TYPE emacs_lisp_nested_input_wait_seconds gauge\n");
+  zmetrics_metric_seconds (&buffer, "emacs_lisp_nested_input_wait_seconds",
+			   nested_input_wait_age);
   ZMETRICS_TEXT
     ("# HELP emacs_gc_in_progress Whether garbage collection is currently running.\n"
      "# TYPE emacs_gc_in_progress gauge\n");
@@ -344,9 +425,12 @@ zmetrics_handle_connection (int fd)
     {
       uint64_t now = zmetrics_now_ns ();
       uint64_t checkpoint = zmetrics_load (&zmetrics_checkpoint_ns);
+      bool input_wait_active
+	= zmetrics_load (&zmetrics_waiting_for_input);
       bool healthy
-	= checkpoint <= now
-	  && now - checkpoint < ZMETRICS_STALL_SECONDS * 1000000000ULL;
+	= input_wait_active
+	  || (checkpoint <= now
+	      && now - checkpoint < ZMETRICS_STALL_SECONDS * 1000000000ULL);
       char const *body
 	= healthy ? "healthy\n" : "unhealthy: main thread stalled\n";
       zmetrics_respond (fd, healthy ? 200 : 503,
@@ -412,7 +496,7 @@ zmetrics_start (void)
     }
 
   zmetrics_started_ns = zmetrics_now_ns ();
-  zmetrics_checkpoint (NULL);
+  zmetrics_observe_main_thread (false, true);
 
   static int listener_for_thread;
   listener_for_thread = listener;
@@ -435,6 +519,4 @@ zmetrics_start (void)
       return;
     }
 
-  struct timespec interval = { 1, 0 };
-  start_atimer (ATIMER_CONTINUOUS, interval, zmetrics_checkpoint, NULL);
 }
