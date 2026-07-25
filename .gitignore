@@ -413,3 +413,9 @@ checkpoints/
 *.pth
 *.ckpt
 *.onnx
+
+# Corpora are generated training DATA and live under ~/z, never in the repo.
+# k.local regenerated a/llm/corpus/train.jsonl into git twice in one hour,
+# each time reverting an intentional trim (546632 <- 413528). The generator
+# writes ~/z/corpus/ already; the repo copy was a duplicate that fought it.
+*.jsonl
