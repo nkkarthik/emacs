@@ -273,6 +273,9 @@ MODULES_OBJ = @MODULES_OBJ@
 ## zmetrics.o if the native Prometheus endpoint is enabled, else empty
 ZMETRICS_OBJ = @ZMETRICS_OBJ@
 
+## zserver.o if the loopback z-server skeleton is enabled, else empty
+ZSERVER_OBJ = @ZSERVER_OBJ@
+
 XRANDR_LIBS = @XRANDR_LIBS@
 XRANDR_CFLAGS = @XRANDR_CFLAGS@
 
@@ -466,7 +469,7 @@ base_obj = dispnew.o frame.o scroll.o xdisp.o menu.o $(XMENU_OBJ) window.o     \
 	$(XWIDGETS_OBJ) 						       \
 	profiler.o decompress.o 					       \
 	thread.o systhread.o sqlite.o  treesit.o			       \
-	$(ZMETRICS_OBJ)						       \
+	$(ZMETRICS_OBJ) $(ZSERVER_OBJ)				       \
 	itree.o json.o 							       \
 	$(MSDOS_OBJ) $(MSDOS_X_OBJ) $(NS_OBJ) $(CYGWIN_OBJ) $(FONT_OBJ)        \
 	$(W32_OBJ) $(WINDOW_SYSTEM_OBJ) $(XGSELOBJ)			       \

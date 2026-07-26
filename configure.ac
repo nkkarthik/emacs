@@ -596,6 +596,8 @@ OPTION_DEFAULT_ON([modules],[don't compile with dynamic modules support])
 OPTION_DEFAULT_ON([threads],[don't compile with elisp threading support])
 OPTION_DEFAULT_OFF([zmetrics],
   [serve Emacs daemon health and Prometheus metrics on loopback])
+OPTION_DEFAULT_OFF([zserver],
+  [build the loopback z-server C skeleton (strangler migration rung 1)])
 OPTION_DEFAULT_OFF([cygwin32-native-compilation],[use native compilation on 32-bit Cygwin])
 OPTION_DEFAULT_ON([xinput2],[don't use version 2 of the X Input Extension for input])
 OPTION_DEFAULT_OFF([small-ja-dic],[generate a smaller-size Japanese dictionary])
@@ -3501,6 +3503,22 @@ AS_CASE([$with_zmetrics],
   [no], [],
   [AC_MSG_ERROR([--with-zmetrics accepts only yes or no])])
 AC_SUBST([ZMETRICS_OBJ])
+
+ZSERVER_OBJ=
+HAVE_ZSERVER=no
+AS_CASE([$with_zserver],
+  [yes],
+    [AS_IF([test "$threads_enabled" != yes || test "$emacs_cv_pthread_lib" = no],
+       [AC_MSG_ERROR([--with-zserver requires POSIX thread support])])
+     AS_IF([test "$opsys" = mingw32],
+       [AC_MSG_ERROR([--with-zserver is not implemented on native MS-Windows])])
+     AC_DEFINE([HAVE_ZSERVER], [1],
+       [Define to 1 if building the loopback z-server C skeleton.])
+     ZSERVER_OBJ=zserver.o
+     HAVE_ZSERVER=yes],
+  [no], [],
+  [AC_MSG_ERROR([--with-zserver accepts only yes or no])])
+AC_SUBST([ZSERVER_OBJ])
 
 dnl Check for need for bigtoc support on IBM AIX
 
@@ -7655,7 +7673,7 @@ for opt in ACL BE_APP CAIRO DBUS FREETYPE GCONF GIF GLIB GMP GNUTLS GPM GSETTING
  M17N_FLT MODULES NATIVE_COMP NOTIFY NS OLDXMENU PDUMPER PGTK PNG RSVG SECCOMP \
  SOUND SQLITE3 THREADS TIFF TOOLKIT_SCROLL_BARS TREE_SITTER \
  UNEXEC WEBP X11 XAW3D XDBE XFT XIM XINERAMA XINPUT2 XPM XRANDR XWIDGETS \
- X_TOOLKIT ZLIB ZMETRICS; do
+ X_TOOLKIT ZLIB ZMETRICS ZSERVER; do
 
     case $opt in
       PDUMPER) val=${with_pdumper} ;;
@@ -7665,6 +7683,7 @@ for opt in ACL BE_APP CAIRO DBUS FREETYPE GCONF GIF GLIB GMP GNUTLS GPM GSETTING
       TOOLKIT_SCROLL_BARS|X_TOOLKIT) eval val=\${USE_$opt} ;;
       THREADS) val=${threads_enabled} ;;
       ZMETRICS) val=${HAVE_ZMETRICS} ;;
+      ZSERVER) val=${HAVE_ZSERVER} ;;
       *) eval val=\${HAVE_$opt} ;;
     esac
     case x$val in
@@ -7736,6 +7755,7 @@ AS_ECHO(["  Does Emacs use -lXaw3d?                                 ${HAVE_XAW3D
   Does Emacs support Xwidgets?                            ${HAVE_XWIDGETS}
   Does Emacs have threading support in lisp?              ${threads_enabled}
   Does Emacs expose loopback Prometheus metrics?          ${HAVE_ZMETRICS}
+  Does Emacs serve the z-server skeleton?                 ${HAVE_ZSERVER}
   Does Emacs support the portable dumper?                 ${with_pdumper}
   Which dumping strategy does Emacs use?                  ${with_dumping}
   Does Emacs have native lisp compiler?                   ${HAVE_NATIVE_COMP}

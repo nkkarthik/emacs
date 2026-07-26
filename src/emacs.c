@@ -118,6 +118,10 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 # include "zmetrics.h"
 #endif
 
+#ifdef HAVE_ZSERVER
+# include "zserver.h"
+#endif
+
 #include "getpagesize.h"
 #include "gnutls.h"
 
@@ -3477,6 +3481,9 @@ from the parent process and its tty file descriptors.  */)
     error ("I/O error during daemon initialization");
 #ifdef HAVE_ZMETRICS
   zmetrics_start ();
+#endif
+#ifdef HAVE_ZSERVER
+  zserver_start ();
 #endif
   return Qt;
 }

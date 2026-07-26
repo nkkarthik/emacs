@@ -14,6 +14,12 @@ $(error ZMETRICS must be 0 or 1)
 endif
 export ZMETRICS
 
+ZSERVER ?= 0
+ifeq ($(filter $(ZSERVER),0 1),)
+$(error ZSERVER must be 0 or 1)
+endif
+export ZSERVER
+
 .PHONY: all install Darwin Linux kws deps ldeps python-deps tree-sitter-src syncthing \
 	syncthing-service configure build codesign vterm-module install-a site-lisp-sync userdir \
 	local-bin brew-bin launch system brew-check brew-install help
@@ -89,4 +95,5 @@ help:
 	@printf '%s\n' \
 	  '' \
 	  'Optional build flags:' \
-	  '  ZMETRICS=1       Build the loopback Emacs Prometheus endpoint (default: 0)'
+	  '  ZMETRICS=1       Build the loopback Emacs Prometheus endpoint (default: 0)' \
+	  '  ZSERVER=1       Build the loopback z-server C skeleton (default: 0)'
