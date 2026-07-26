@@ -594,15 +594,9 @@ OPTION_DEFAULT_ON([gnutls],[don't use -lgnutls for SSL/TLS support])
 OPTION_DEFAULT_ON([zlib],[don't compile with zlib decompression support])
 OPTION_DEFAULT_ON([modules],[don't compile with dynamic modules support])
 OPTION_DEFAULT_ON([threads],[don't compile with elisp threading support])
-OPTION_DEFAULT_OFF([zmetrics],
-  [serve Emacs daemon health and Prometheus metrics on loopback])
-OPTION_DEFAULT_OFF([zserver],
-  [build the loopback z-server C skeleton (strangler migration rung 1)])
-OPTION_DEFAULT_OFF([cygwin32-native-compilation],[use native compilation on 32-bit Cygwin])
-OPTION_DEFAULT_ON([xinput2],[don't use version 2 of the X Input Extension for input])
-OPTION_DEFAULT_OFF([small-ja-dic],[generate a smaller-size Japanese dictionary])
-OPTION_DEFAULT_OFF([android],[cross-compile Android application package])
-OPTION_DEFAULT_ON([android-debug],[don't build Emacs as a debug package on Android])
+OPTION_DEFAULT_OFF([znode],
+  [build this Emacs as a z fleet node: worker and metrics pthreads from
+   ../z/src, participating in election, presence and liveness (default off)])
 
 # Find out of Android support is enabled and mailutils has defaulted
 # to `yes-unless-android'.  Disable it if so.
@@ -3488,37 +3482,45 @@ if test "$with_threads" = yes; then
 fi
 AC_MSG_RESULT([$threads_enabled])
 
-ZMETRICS_OBJ=
-HAVE_ZMETRICS=no
-AS_CASE([$with_zmetrics],
+dnl z fleet node.  One flag builds every native z object: the worker and
+dnl metrics pthreads and the control-plane server.  They live in ../z/src so
+dnl that z owns them without touching the fork's own src/, and so that task
+dnl write_paths scoped to z/ already cover them.
+dnl
+dnl A SINGLE FLAG IS DELIBERATE.  The previous three-way ZMETRICS/ZSERVER/ZRAFT
+dnl split is how ZSERVER=1 came to be accepted by e.mk and silently dropped
+dnl before reaching configure: verified on mnk.local 2026-07-26, configure's
+dnl own summary reported z-server "no" while the build reported success.
+ZNODE_OBJ=
+HAVE_ZNODE=no
+AS_CASE([$with_znode],
   [yes],
     [AS_IF([test "$threads_enabled" != yes || test "$emacs_cv_pthread_lib" = no],
-       [AC_MSG_ERROR([--with-zmetrics requires POSIX thread support])])
+       [AC_MSG_ERROR([--with-znode requires POSIX thread support])])
      AS_IF([test "$opsys" = mingw32],
-       [AC_MSG_ERROR([--with-zmetrics is not implemented on native MS-Windows])])
+       [AC_MSG_ERROR([--with-znode is not implemented on native MS-Windows])])
+     AS_IF([test "$HAVE_SQLITE3" != yes],
+       [AC_MSG_ERROR([--with-znode requires SQLite: the node persists its raft
+                      term and vote, and voting without durable state elects
+                      two leaders])])
+     AC_DEFINE([HAVE_ZNODE], [1],
+       [Define to 1 to build this Emacs as a z fleet node.])
+     dnl The node subsumes the former separate features.  Defining these keeps
+     dnl the existing instrumentation sites in alloc.c and process.c compiling
+     dnl unchanged rather than churning them for a rename.
      AC_DEFINE([HAVE_ZMETRICS], [1],
        [Define to 1 to build the Emacs Prometheus metrics endpoint.])
-     ZMETRICS_OBJ=zmetrics.o
-     HAVE_ZMETRICS=yes],
-  [no], [],
-  [AC_MSG_ERROR([--with-zmetrics accepts only yes or no])])
-AC_SUBST([ZMETRICS_OBJ])
-
-ZSERVER_OBJ=
-HAVE_ZSERVER=no
-AS_CASE([$with_zserver],
-  [yes],
-    [AS_IF([test "$threads_enabled" != yes || test "$emacs_cv_pthread_lib" = no],
-       [AC_MSG_ERROR([--with-zserver requires POSIX thread support])])
-     AS_IF([test "$opsys" = mingw32],
-       [AC_MSG_ERROR([--with-zserver is not implemented on native MS-Windows])])
      AC_DEFINE([HAVE_ZSERVER], [1],
-       [Define to 1 if building the loopback z-server C skeleton.])
-     ZSERVER_OBJ=zserver.o
-     HAVE_ZSERVER=yes],
+       [Define to 1 to build the z control-plane server.])
+     ZNODE_OBJ="znode.o znode-lisp.o zmetrics.o zserver.o"
+     dnl Only znode-lisp.c carries DEFUNs, and make-docfile needs it by
+     dnl path because it chdir()s to srcdir.
+     ZNODE_DOC_OBJ="../z/src/znode-lisp.o"
+     HAVE_ZNODE=yes],
   [no], [],
-  [AC_MSG_ERROR([--with-zserver accepts only yes or no])])
-AC_SUBST([ZSERVER_OBJ])
+  [AC_MSG_ERROR([--with-znode accepts only yes or no])])
+AC_SUBST([ZNODE_OBJ])
+AC_SUBST([ZNODE_DOC_OBJ])
 
 dnl Check for need for bigtoc support on IBM AIX
 

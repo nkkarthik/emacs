@@ -32,7 +32,12 @@ top_srcdir = @top_srcdir@
 top_builddir = @top_builddir@
 # MinGW CPPFLAGS may use this.
 abs_top_srcdir=@abs_top_srcdir@
-VPATH = $(srcdir)
+## z owns its native code in ../z/src: zmetrics.c, zserver.c, zraft.c.
+## They are built into Emacs but live under z/ so that z can change them
+## without touching the fork's own src/, and so task write_paths scoped to
+## z/ cover them.
+zsrcdir = $(srcdir)/../z/src
+VPATH = $(srcdir) $(zsrcdir)
 
 # Set these to 'not-set' when they are not set from top-level to please
 # 'load--fixup-all-elns' (bug#70842).
@@ -270,11 +275,17 @@ LIBMODULES = @LIBMODULES@
 ## emacs-module.o if modules enabled, else empty
 MODULES_OBJ = @MODULES_OBJ@
 
-## zmetrics.o if the native Prometheus endpoint is enabled, else empty
-ZMETRICS_OBJ = @ZMETRICS_OBJ@
+## The z fleet node objects from ../z/src, or empty when ZNODE=0.  One flag
+## builds all of them.  VPATH finds the sources; see zsrcdir above.
+ZNODE_OBJ = @ZNODE_OBJ@
 
-## zserver.o if the loopback z-server skeleton is enabled, else empty
-ZSERVER_OBJ = @ZSERVER_OBJ@
+## The same objects PATH-QUALIFIED, for make-docfile only.
+##
+## make-docfile chdir()s to its -d argument and then opens each object name
+## with .o mapped to .c, so a bare "znode-lisp.o" would be looked for in
+## src/ and not found.  Only the file carrying DEFUNs needs this: znode.c
+## deliberately has no Lisp linkage at all.
+ZNODE_DOC_OBJ = @ZNODE_DOC_OBJ@
 
 XRANDR_LIBS = @XRANDR_LIBS@
 XRANDR_CFLAGS = @XRANDR_CFLAGS@
@@ -424,7 +435,7 @@ NON_CXX_CFLAGS = -Wmissing-prototypes -Wnested-externs -Wold-style-definition \
 # -Demacs makes some files produce the correct version for use in Emacs.
 # MYCPPFLAGS is for by-hand Emacs-specific overrides, e.g.,
 # "make MYCPPFLAGS='-DDBUS_DEBUG'".
-EMACS_CFLAGS=-Demacs $(MYCPPFLAGS) -I. -I$(srcdir) \
+EMACS_CFLAGS=-Demacs $(MYCPPFLAGS) -I. -I$(srcdir) -I$(zsrcdir) \
   -I$(lib) -I$(top_srcdir)/lib \
   $(C_SWITCH_MACHINE) $(C_SWITCH_SYSTEM) $(C_SWITCH_X_SITE) \
   $(GNUSTEP_CFLAGS) $(CFLAGS_SOUND) $(RSVG_CFLAGS) $(IMAGEMAGICK_CFLAGS) \
@@ -469,7 +480,7 @@ base_obj = dispnew.o frame.o scroll.o xdisp.o menu.o $(XMENU_OBJ) window.o     \
 	$(XWIDGETS_OBJ) 						       \
 	profiler.o decompress.o 					       \
 	thread.o systhread.o sqlite.o  treesit.o			       \
-	$(ZMETRICS_OBJ) $(ZSERVER_OBJ)				       \
+	$(ZNODE_OBJ)						       \
 	itree.o json.o 							       \
 	$(MSDOS_OBJ) $(MSDOS_X_OBJ) $(NS_OBJ) $(CYGWIN_OBJ) $(FONT_OBJ)        \
 	$(W32_OBJ) $(WINDOW_SYSTEM_OBJ) $(XGSELOBJ)			       \
@@ -667,11 +678,11 @@ endif
 ## for the first time, this prevents any variation between configurations
 ## in the contents of the DOC file.
 ##
-$(etc)/DOC: $(libsrc)/make-docfile$(EXEEXT) $(doc_obj)
+$(etc)/DOC: $(libsrc)/make-docfile$(EXEEXT) $(doc_obj) $(ZNODE_OBJ)
 	$(AM_V_GEN)$(MKDIR_P) $(etc)
 	$(AM_V_at)rm -f $(etc)/DOC
 	$(AM_V_at)$(libsrc)/make-docfile -d $(srcdir) \
-	  $(SOME_MACHINE_OBJECTS) $(doc_obj) > $(etc)/DOC
+	  $(SOME_MACHINE_OBJECTS) $(doc_obj) $(ZNODE_DOC_OBJ) > $(etc)/DOC
 
 $(libsrc)/make-docfile$(EXEEXT) $(libsrc)/make-fingerprint$(EXEEXT): \
   $(hostlib)/libgnu.a
@@ -687,7 +698,8 @@ buildobj.h: Makefile
 GLOBAL_SOURCES = $(base_obj:.o=.c) $(NS_OBJC_OBJ:.o=.m)
 
 gl-stamp: $(libsrc)/make-docfile$(EXEEXT) $(GLOBAL_SOURCES)
-	$(AM_V_GLOBALS)$(libsrc)/make-docfile -d $(srcdir) -g $(doc_obj) > globals.tmp
+	$(AM_V_GLOBALS)$(libsrc)/make-docfile -d $(srcdir) -g $(doc_obj) \
+	  $(ZNODE_DOC_OBJ) > globals.tmp
 	$(AM_V_at)$(top_srcdir)/build-aux/move-if-change globals.tmp globals.h
 	$(AM_V_at)echo timestamp > $@
 

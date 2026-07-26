@@ -8,17 +8,19 @@ UBUNTU_INSTALLER := ./a/os/linux/ubuntu/install.sh
 FEDORA_INSTALLER := ./a/os/linux/fedora/install.sh
 PLATFORM_INSTALLER := ./a/os/install.sh
 
-ZMETRICS ?= 0
-ifeq ($(filter $(ZMETRICS),0 1),)
-$(error ZMETRICS must be 0 or 1)
+# ONE FLAG, ONE CONCEPT.  Build with ZNODE=1 and this Emacs is a fleet node:
+# it starts the worker and metrics pthreads from ~/e/z/src and participates in
+# election, presence and liveness.  Stock Emacs does neither.
+#
+# This replaces the earlier ZMETRICS/ZSERVER/ZRAFT split.  That split is how
+# ZSERVER=1 came to be accepted here and silently dropped before reaching
+# ./configure -- verified on mnk.local 2026-07-26, where configure's own
+# summary said z-server "no" while the build reported success.
+ZNODE ?= 0
+ifeq ($(filter $(ZNODE),0 1),)
+$(error ZNODE must be 0 or 1)
 endif
-export ZMETRICS
-
-ZSERVER ?= 0
-ifeq ($(filter $(ZSERVER),0 1),)
-$(error ZSERVER must be 0 or 1)
-endif
-export ZSERVER
+export ZNODE
 
 .PHONY: all install Darwin Linux kws deps ldeps python-deps tree-sitter-src syncthing \
 	syncthing-service configure build codesign vterm-module install-a site-lisp-sync userdir \
@@ -95,5 +97,4 @@ help:
 	@printf '%s\n' \
 	  '' \
 	  'Optional build flags:' \
-	  '  ZMETRICS=1       Build the loopback Emacs Prometheus endpoint (default: 0)' \
-	  '  ZSERVER=1       Build the loopback z-server C skeleton (default: 0)'
+	  '  ZNODE=1         Build this Emacs as a z fleet node (default: 0)'

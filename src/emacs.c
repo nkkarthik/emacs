@@ -114,6 +114,10 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "sysselect.h"
 #include "systime.h"
 
+#ifdef HAVE_ZNODE
+# include "znode.h"
+#endif
+
 #ifdef HAVE_ZMETRICS
 # include "zmetrics.h"
 #endif
@@ -2496,6 +2500,9 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
 
       syms_of_xwidget ();
       syms_of_threads ();
+#ifdef HAVE_ZNODE
+      syms_of_znode ();
+#endif
       syms_of_profiler ();
       syms_of_pdumper ();
       syms_of_json ();
@@ -3479,6 +3486,13 @@ from the parent process and its tty file descriptors.  */)
 
   if (err)
     error ("I/O error during daemon initialization");
+#ifdef HAVE_ZNODE
+  /* Start the fleet node threads.  Safe when unconfigured: znode_start
+     returns false and changes nothing.  It never blocks the caller, because
+     it only spawns detached threads.  */
+  znode_start ();
+#endif
+
 #ifdef HAVE_ZMETRICS
   zmetrics_start ();
 #endif
