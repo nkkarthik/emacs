@@ -3701,7 +3701,7 @@ dnl write_paths scoped to z/ already cover them.
 dnl
 dnl A SINGLE FLAG IS DELIBERATE.  The previous three-way ZMETRICS/ZSERVER/ZRAFT
 dnl split is how ZSERVER=1 came to be accepted by e.mk and silently dropped
-dnl before reaching configure: verified on mnk.local 2026-07-26, configure's
+dnl before reaching configure: observed on an arm64 host, configure's
 dnl own summary reported z-server "no" while the build reported success.
 dnl
 dnl THIS BLOCK MUST FOLLOW THE SQLITE CHECK, and that is why it lives here
