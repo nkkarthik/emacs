@@ -8,14 +8,6 @@ UBUNTU_INSTALLER := ./a/os/linux/ubuntu/install.sh
 FEDORA_INSTALLER := ./a/os/linux/fedora/install.sh
 PLATFORM_INSTALLER := ./a/os/install.sh
 
-# ONE FLAG, ONE CONCEPT.  Build with ZNODE=1 and this Emacs is a fleet node:
-# it starts the worker and metrics pthreads from ~/e/z/src and participates in
-# election, presence and liveness.  Stock Emacs does neither.
-#
-# This replaces the earlier ZMETRICS/ZSERVER/ZRAFT split.  That split is how
-# ZSERVER=1 came to be accepted here and silently dropped before reaching
-# ./configure -- verified on mnk.local 2026-07-26, where configure's own
-# summary said z-server "no" while the build reported success.
 ZNODE ?= 0
 ifeq ($(filter $(ZNODE),0 1),)
 $(error ZNODE must be 0 or 1)
