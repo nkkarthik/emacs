@@ -3482,46 +3482,6 @@ if test "$with_threads" = yes; then
 fi
 AC_MSG_RESULT([$threads_enabled])
 
-dnl z fleet node.  One flag builds every native z object: the worker and
-dnl metrics pthreads and the control-plane server.  They live in ../z/src so
-dnl that z owns them without touching the fork's own src/, and so that task
-dnl write_paths scoped to z/ already cover them.
-dnl
-dnl A SINGLE FLAG IS DELIBERATE.  The previous three-way ZMETRICS/ZSERVER/ZRAFT
-dnl split is how ZSERVER=1 came to be accepted by e.mk and silently dropped
-dnl before reaching configure: verified on mnk.local 2026-07-26, configure's
-dnl own summary reported z-server "no" while the build reported success.
-ZNODE_OBJ=
-HAVE_ZNODE=no
-AS_CASE([$with_znode],
-  [yes],
-    [AS_IF([test "$threads_enabled" != yes || test "$emacs_cv_pthread_lib" = no],
-       [AC_MSG_ERROR([--with-znode requires POSIX thread support])])
-     AS_IF([test "$opsys" = mingw32],
-       [AC_MSG_ERROR([--with-znode is not implemented on native MS-Windows])])
-     AS_IF([test "$HAVE_SQLITE3" != yes],
-       [AC_MSG_ERROR([--with-znode requires SQLite: the node persists its raft
-                      term and vote, and voting without durable state elects
-                      two leaders])])
-     AC_DEFINE([HAVE_ZNODE], [1],
-       [Define to 1 to build this Emacs as a z fleet node.])
-     dnl The node subsumes the former separate features.  Defining these keeps
-     dnl the existing instrumentation sites in alloc.c and process.c compiling
-     dnl unchanged rather than churning them for a rename.
-     AC_DEFINE([HAVE_ZMETRICS], [1],
-       [Define to 1 to build the Emacs Prometheus metrics endpoint.])
-     AC_DEFINE([HAVE_ZSERVER], [1],
-       [Define to 1 to build the z control-plane server.])
-     ZNODE_OBJ="znode.o znode-lisp.o zmetrics.o zserver.o"
-     dnl Only znode-lisp.c carries DEFUNs, and make-docfile needs it by
-     dnl path because it chdir()s to srcdir.
-     ZNODE_DOC_OBJ="../z/src/znode-lisp.o"
-     HAVE_ZNODE=yes],
-  [no], [],
-  [AC_MSG_ERROR([--with-znode accepts only yes or no])])
-AC_SUBST([ZNODE_OBJ])
-AC_SUBST([ZNODE_DOC_OBJ])
-
 dnl Check for need for bigtoc support on IBM AIX
 
 case ${host_os} in
@@ -3733,6 +3693,55 @@ fi
 
 AC_SUBST([SQLITE3_LIBS])
 AC_SUBST([SQLITE3_CFLAGS])
+
+dnl z fleet node.  One flag builds every native z object: the worker and
+dnl metrics pthreads and the control-plane server.  They live in ../z/src so
+dnl that z owns them without touching the fork's own src/, and so that task
+dnl write_paths scoped to z/ already cover them.
+dnl
+dnl A SINGLE FLAG IS DELIBERATE.  The previous three-way ZMETRICS/ZSERVER/ZRAFT
+dnl split is how ZSERVER=1 came to be accepted by e.mk and silently dropped
+dnl before reaching configure: verified on mnk.local 2026-07-26, configure's
+dnl own summary reported z-server "no" while the build reported success.
+dnl
+dnl THIS BLOCK MUST FOLLOW THE SQLITE CHECK, and that is why it lives here
+dnl rather than beside the other feature options.  It was originally placed at
+dnl line ~3485, 182 lines BEFORE $HAVE_SQLITE3 is assigned, so the SQLite test
+dnl below compared an EMPTY variable -- `test "" != yes' is true -- and every
+dnl machine in the fleet failed configure with the durable-state error while
+dnl having SQLite installed and znode already linking against it standalone.
+dnl Autoconf is ordered execution, not declarations: a test that reads a
+dnl variable must come after whatever sets it.
+ZNODE_OBJ=
+HAVE_ZNODE=no
+AS_CASE([$with_znode],
+  [yes],
+    [AS_IF([test "$threads_enabled" != yes || test "$emacs_cv_pthread_lib" = no],
+       [AC_MSG_ERROR([--with-znode requires POSIX thread support])])
+     AS_IF([test "$opsys" = mingw32],
+       [AC_MSG_ERROR([--with-znode is not implemented on native MS-Windows])])
+     AS_IF([test "$HAVE_SQLITE3" != yes],
+       [AC_MSG_ERROR([--with-znode requires SQLite: the node persists its raft
+                      term and vote, and voting without durable state elects
+                      two leaders])])
+     AC_DEFINE([HAVE_ZNODE], [1],
+       [Define to 1 to build this Emacs as a z fleet node.])
+     dnl The node subsumes the former separate features.  Defining these keeps
+     dnl the existing instrumentation sites in alloc.c and process.c compiling
+     dnl unchanged rather than churning them for a rename.
+     AC_DEFINE([HAVE_ZMETRICS], [1],
+       [Define to 1 to build the Emacs Prometheus metrics endpoint.])
+     AC_DEFINE([HAVE_ZSERVER], [1],
+       [Define to 1 to build the z control-plane server.])
+     ZNODE_OBJ="znode.o znode-lisp.o zmetrics.o zserver.o"
+     dnl Only znode-lisp.c carries DEFUNs, and make-docfile needs it by
+     dnl path because it chdir()s to srcdir.
+     ZNODE_DOC_OBJ="../z/src/znode-lisp.o"
+     HAVE_ZNODE=yes],
+  [no], [],
+  [AC_MSG_ERROR([--with-znode accepts only yes or no])])
+AC_SUBST([ZNODE_OBJ])
+AC_SUBST([ZNODE_DOC_OBJ])
 
 HAVE_IMAGEMAGICK=no
 if test "${HAVE_X11}" = "yes" || test "${HAVE_NS}" = "yes" || test "${HAVE_W32}" = "yes" || \
