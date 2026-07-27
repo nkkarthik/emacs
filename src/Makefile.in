@@ -704,7 +704,10 @@ buildobj.h: Makefile
 	done >$@.tmp
 	$(AM_V_at)mv $@.tmp $@
 
-GLOBAL_SOURCES = $(base_obj:.o=.c) $(NS_OBJC_OBJ:.o=.m)
+## New DEFUNs in the out-of-tree znode Lisp boundary must regenerate
+## globals.h before that object is compiled.
+ZNODE_GLOBAL_SOURCE = $(if $(ZNODE_DOC_OBJ),$(top_srcdir)/z/src/znode-lisp.c)
+GLOBAL_SOURCES = $(base_obj:.o=.c) $(NS_OBJC_OBJ:.o=.m) $(ZNODE_GLOBAL_SOURCE)
 
 gl-stamp: $(libsrc)/make-docfile$(EXEEXT) $(GLOBAL_SOURCES)
 	$(AM_V_GLOBALS)$(libsrc)/make-docfile -d $(srcdir) -g $(doc_obj) \
