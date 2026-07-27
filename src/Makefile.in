@@ -480,13 +480,22 @@ base_obj = dispnew.o frame.o scroll.o xdisp.o menu.o $(XMENU_OBJ) window.o     \
 	$(XWIDGETS_OBJ) 						       \
 	profiler.o decompress.o 					       \
 	thread.o systhread.o sqlite.o  treesit.o			       \
-	$(ZNODE_OBJ)						       \
 	itree.o json.o 							       \
 	$(MSDOS_OBJ) $(MSDOS_X_OBJ) $(NS_OBJ) $(CYGWIN_OBJ) $(FONT_OBJ)        \
 	$(W32_OBJ) $(WINDOW_SYSTEM_OBJ) $(XGSELOBJ)			       \
 	$(HAIKU_OBJ) $(PGTK_OBJ) $(ANDROID_OBJ)
 doc_obj = $(base_obj) $(NS_OBJC_OBJ)
-obj = $(doc_obj) $(HAIKU_CXX_OBJ)
+
+## The z node objects LINK but are not handed to make-docfile through this
+## list.  They must NOT be in base_obj: doc_obj is derived from it, and
+## make-docfile maps each .o to a .c relative to srcdir -- so znode.o became a
+## search for src/znode.c, which does not exist, and gl-stamp died with
+## "znode.c: No such file or directory".
+##
+## Only znode-lisp.c carries DEFUNs, and it reaches make-docfile by path
+## through ZNODE_DOC_OBJ instead.  The sources live in ../z/src and are found
+## for compilation by VPATH; see zsrcdir at the top.
+obj = $(doc_obj) $(HAIKU_CXX_OBJ) $(ZNODE_OBJ)
 
 ## Object files used on some machine or other.
 ## These go in the DOC file on all machines in case they are needed.
