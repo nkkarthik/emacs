@@ -3489,7 +3489,14 @@ from the parent process and its tty file descriptors.  */)
 #ifdef HAVE_ZNODE
   /* Start the fleet node threads.  Safe when unconfigured: znode_start
      returns false and changes nothing.  It never blocks the caller, because
-     it only spawns detached threads.  */
+     it only spawns detached threads.
+
+     Name the instance first so each daemon reads its OWN configuration: book
+     runs both the default daemon and `--daemon=z' from this one binary, and
+     sharing one env file would give them the same ZNODE_ID -- two nodes under
+     one identity, which consensus cannot tolerate -- while the second silently
+     failed to bind ports the first already held.  */
+  znode_set_instance (daemon_name);
   znode_start ();
 #endif
 
