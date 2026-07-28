@@ -51,6 +51,10 @@ extern char **environ;
 
 #include "lisp.h"
 
+#ifdef HAVE_ZNODE
+# include "zmcp.h"		/* zmcp_note_synch_child, for the eval watchdog */
+#endif
+
 #ifdef SETUP_SLAVE_PTY
 # include <sys/stream.h>
 # include <sys/stropts.h>
@@ -111,6 +115,33 @@ static Lisp_Object Vtemp_file_name_pattern;
 
 /* If nonzero, a process-ID that has not been reaped.  */
 static pid_t synch_process_pid;
+
+/* Set the synchronous child's pid, and publish it to the MCP surface.
+
+   WHY THE HOOK IS HERE.  An `emacs_eval' submitted over MCP runs on the Lisp
+   thread, and its 5-second deadline bounds only the CALLER -- when a form
+   blocks, the caller is told the thread "did not answer" and the form goes on
+   running forever.  On 2026-07-27 one such form shelled out to `emacsclient'
+   against this daemon's own socket, which cannot ever return, and wedged the
+   image for 14 minutes until a human killed the child.
+
+   The MCP thread may not touch a Lisp object, so it cannot quit the
+   evaluation -- and quitting would be inert anyway, since the pump runs under
+   `inhibit-quit'.  But `synch_process_pid' is a plain pid_t, so publishing it
+   lets that thread kill the CHILD at the deadline.  The blocked read then
+   returns EOF, `call_process' completes normally, and the evaluation ends
+   through the path it already had.  See the watchdog note in z/src/zmcp.c.
+
+   Only SYNCHRONOUS children are published, so `start-process' work -- fleet
+   builds, agent sessions -- is never a candidate.  */
+static void
+set_synch_process_pid (pid_t pid)
+{
+  synch_process_pid = pid;
+#ifdef HAVE_ZNODE
+  zmcp_note_synch_child (pid);
+#endif
+}
 
 /* If a string, the name of a temp file that has not been removed.  */
 #ifdef MSDOS
@@ -233,7 +264,7 @@ call_process_kill (void *ptr)
       proc.alive = 1;
       proc.pid = synch_process_pid;
       record_kill_process (&proc, synch_process_tempfile);
-      synch_process_pid = 0;
+      set_synch_process_pid (0);
     }
   else if (STRINGP (synch_process_tempfile))
     delete_temp_file (synch_process_tempfile);
@@ -255,7 +286,7 @@ call_process_cleanup (Lisp_Object buffer)
 
       /* This will quit on C-g.  */
       bool wait_ok = wait_for_termination (synch_process_pid, NULL, true);
-      synch_process_pid = 0;
+      set_synch_process_pid (0);
       message1 (wait_ok
 		? "Waiting for process to die...done"
 		: "Waiting for process to die...internal error");
@@ -681,7 +712,7 @@ call_process (ptrdiff_t nargs, Lisp_Object *args, int filefd,
 
   if (pid > 0)
     {
-      synch_process_pid = pid;
+      set_synch_process_pid (pid);
 
       if (FIXNUMP (buffer))
 	{
@@ -693,7 +724,7 @@ call_process (ptrdiff_t nargs, Lisp_Object *args, int filefd,
 	      record_deleted_pid (pid, args[1]);
 	      clear_unwind_protect (tempfile_index);
 	    }
-	  synch_process_pid = 0;
+	  set_synch_process_pid (0);
 	}
     }
 
@@ -926,7 +957,7 @@ call_process (ptrdiff_t nargs, Lisp_Object *args, int filefd,
 
   /* Don't kill any children that the subprocess may have left behind
      when exiting.  */
-  synch_process_pid = 0;
+  set_synch_process_pid (0);
 
   SAFE_FREE_UNBIND_TO (count, Qnil);
 
