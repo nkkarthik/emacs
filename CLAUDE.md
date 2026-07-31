@@ -8,10 +8,11 @@ in the encrypted contracts below, or in a task's own text — never here.
 
 ## Which contract to read
 
-Read the ONE that matches you. Do not read both.
-
 - working in `~/e/z` → `z/CLAUDE.md`
-- working in `~/e/a` → `a/CLAUDE.md`
+
+There is one Claude session (claude:z) on this fleet. `a/CLAUDE.md` has been
+deleted — claude:a no longer exists. Codex executors run in the default daemon
+but there is no separate Claude session managing them.
 
 Executors receive no ambient contract at all. Everything needed for a piece of
 work arrives in that task's own text, which is why a handoff must be complete
