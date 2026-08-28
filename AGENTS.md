@@ -1,1 +1,1 @@
-@a/agent/AGENTS.md
+See ~/e/a/agent/AGENTS.md
