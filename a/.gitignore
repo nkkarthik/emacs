@@ -61,4 +61,4 @@ fastlane/Preview.html
 Crashlytics.framework/
 
 # Local Android source mirror
-k/sys/android/src/
+mac/ksys/ops/android/src/
