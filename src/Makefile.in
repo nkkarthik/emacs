@@ -37,7 +37,8 @@ abs_top_srcdir=@abs_top_srcdir@
 ## without touching the fork's own src/, and so task write_paths scoped to
 ## z/ cover them.
 zsrcdir = $(srcdir)/../z/src
-VPATH = $(srcdir) $(zsrcdir)
+raftsrcdir = $(srcdir)/../a/util/raft/src
+VPATH = $(srcdir) $(zsrcdir) $(raftsrcdir)
 
 # Set these to 'not-set' when they are not set from top-level to please
 # 'load--fixup-all-elns' (bug#70842).
@@ -435,7 +436,7 @@ NON_CXX_CFLAGS = -Wmissing-prototypes -Wnested-externs -Wold-style-definition \
 # -Demacs makes some files produce the correct version for use in Emacs.
 # MYCPPFLAGS is for by-hand Emacs-specific overrides, e.g.,
 # "make MYCPPFLAGS='-DDBUS_DEBUG'".
-EMACS_CFLAGS=-Demacs $(MYCPPFLAGS) -I. -I$(srcdir) -I$(zsrcdir) \
+EMACS_CFLAGS=-Demacs $(MYCPPFLAGS) -I. -I$(srcdir) -I$(zsrcdir) -I$(raftsrcdir) \
   -I$(lib) -I$(top_srcdir)/lib \
   $(C_SWITCH_MACHINE) $(C_SWITCH_SYSTEM) $(C_SWITCH_X_SITE) \
   $(GNUSTEP_CFLAGS) $(CFLAGS_SOUND) $(RSVG_CFLAGS) $(IMAGEMAGICK_CFLAGS) \

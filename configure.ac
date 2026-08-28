@@ -3733,7 +3733,7 @@ AS_CASE([$with_znode],
        [Define to 1 to build the Emacs Prometheus metrics endpoint.])
      AC_DEFINE([HAVE_ZSERVER], [1],
        [Define to 1 to build the z control-plane server.])
-     ZNODE_OBJ="znode.o zevent.o zmcp.o znode-lisp.o zmetrics.o zserver.o"
+     ZNODE_OBJ="raft.o znode.o zevent.o zmcp.o znode-lisp.o zmetrics.o zserver.o"
      dnl Only znode-lisp.c carries DEFUNs, and make-docfile needs it by
      dnl path because it chdir()s to srcdir.
      ZNODE_DOC_OBJ="../z/src/znode-lisp.o"
