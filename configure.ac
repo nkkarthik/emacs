@@ -3721,9 +3721,8 @@ AS_CASE([$with_znode],
      AS_IF([test "$opsys" = mingw32],
        [AC_MSG_ERROR([--with-znode is not implemented on native MS-Windows])])
      AS_IF([test "$HAVE_SQLITE3" != yes],
-       [AC_MSG_ERROR([--with-znode requires SQLite: the node persists its raft
-                      term and vote, and voting without durable state elects
-                      two leaders])])
+       [AC_MSG_ERROR([--with-znode requires SQLite for the authoritative
+                      z-server task database])])
      AC_DEFINE([HAVE_ZNODE], [1],
        [Define to 1 to build this Emacs as a z fleet node.])
      dnl The node subsumes the former separate features.  Defining these keeps
@@ -3733,7 +3732,7 @@ AS_CASE([$with_znode],
        [Define to 1 to build the Emacs Prometheus metrics endpoint.])
      AC_DEFINE([HAVE_ZSERVER], [1],
        [Define to 1 to build the z control-plane server.])
-     ZNODE_OBJ="raft.o znode.o zevent.o zmcp.o znode-lisp.o zmetrics.o zserver.o"
+     ZNODE_OBJ="znode.o zevent.o zmcp.o znode-lisp.o zmetrics.o zserver.o"
      dnl Only znode-lisp.c carries DEFUNs, and make-docfile needs it by
      dnl path because it chdir()s to srcdir.
      ZNODE_DOC_OBJ="../z/src/znode-lisp.o"
