@@ -16,7 +16,7 @@ export ZNODE
 
 .PHONY: all install Darwin Linux kws deps ldeps python-deps tree-sitter-src syncthing \
 	syncthing-service configure build codesign vterm-module install-a site-lisp-sync userdir \
-	local-bin brew-bin launch system brew-check brew-install help
+	launch system brew-check brew-install kterm z-macos z-ios help
 
 all:
 	$(PLATFORM_INSTALLER) all
@@ -60,17 +60,20 @@ build:
 codesign:
 	$(DARWIN_INSTALLER) codesign
 
+kterm:
+	$(PLATFORM_INSTALLER) kterm
+
+z-macos:
+	$(PLATFORM_INSTALLER) z-macos
+
+z-ios:
+	$(PLATFORM_INSTALLER) z-ios
+
 vterm-module:
 	$(PLATFORM_INSTALLER) vterm
 
 install-a site-lisp-sync userdir:
 	$(PLATFORM_INSTALLER) site-lisp
-
-local-bin:
-	$(UBUNTU_INSTALLER) link
-
-brew-bin:
-	$(DARWIN_INSTALLER) link
 
 launch:
 	$(DARWIN_INSTALLER) service
@@ -89,4 +92,9 @@ help:
 	@printf '%s\n' \
 	  '' \
 	  'Optional build flags:' \
-	  '  ZNODE=1         Build this Emacs as a z fleet node (default: 0)'
+	  '  ZNODE=1         Build this Emacs as a z fleet node (default: 0)' \
+	  '' \
+	  'Apple product targets (Darwin only):' \
+	  '  kterm          Build, HZ-sign, and install kterm' \
+	  '  z-macos        Build, HZ-sign, and install z/mac' \
+	  '  z-ios          Test, HZ-sign, and deploy z/iOS'
