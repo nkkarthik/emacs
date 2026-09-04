@@ -9,7 +9,7 @@
 E_REPO_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export E_REPO_ROOT
 
-PRIVATE_MAKEFILES := $(E_REPO_ROOT)/a/e.mk $(E_REPO_ROOT)/z/fleet.mk
+PRIVATE_MAKEFILES := $(E_REPO_ROOT)/a/a.mk $(E_REPO_ROOT)/z/z.mk
 PRIVATE_MAKEFILES_READY := $(shell \
 	for file in $(PRIVATE_MAKEFILES); do \
 		test -r "$$file" && \
