@@ -700,6 +700,7 @@ font-lock keywords will not be case sensitive."
                                      lisp-mode-autoload-regexp
                                      "\\)"))
   (setq-local outline-level 'lisp-outline-level)
+  (setq-local outline-comment-regexp ";;; \\([*]+\\)")
   (setq-local add-log-current-defun-function #'lisp-current-defun-name)
   (setq-local comment-start ";")
   (setq-local comment-start-skip ";+ *")
@@ -730,7 +731,6 @@ font-lock keywords will not be case sensitive."
   "Major mode for buffers holding data written in Lisp syntax."
   :group 'lisp
   (lisp-mode-variables nil t nil)
-  (setq-local electric-quote-string t)
   (setq imenu-case-fold-search nil)
   (setq-local hs-block-start-regexp "\\s(\\|\"")
   (setq-local hs-block-end-regexp "\\s)\\|\""))
@@ -1277,7 +1277,8 @@ Lisp function does not specify a special indentation."
           ;; inside the innermost containing sexp.
           (backward-prefix-chars)
           (current-column))
-      (let* ((function (intern-soft
+      ;; FIXME: Using `shorthands-intern-soft' is wrong for non-Emacs Lisp.
+      (let* ((function (shorthands-intern-soft
                         (buffer-substring (point)
                                           (progn (forward-sexp 1) (point)))))
              (local (assq function lisp-indent-local-overrides))

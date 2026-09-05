@@ -20,6 +20,15 @@ https://github.com/joaotavora/eglot/issues/1234.
 
 * Changes to upcoming Eglot
 
+** Changes to 'eglot-server-programs'
+
+- new 'vala-language-server' for 'vala-mode'  (bug#81543)
+
+** Miscellaneous bugs fixed (bug#81593, bug#81538, bug#81514, bug#81425)
+
+
+* Changes in Eglot 1.24 (23/6/2026)
+
 ** New command 'M-x eglot-describe-connection'
 
 Pops up a detailed description buffer for the current connection,
@@ -32,11 +41,13 @@ New key bindings: 'k' shuts down, 'r' reconnects, 'e' visits the events
 buffer, 'w' shows workspace configuration, and 'RET' invokes
 'eglot-describe-connection'.
 
-** Eglot uses new built-in 'markdown-ts-mode' of Emacs 31 (bug#80127)
+** New variable 'eglot-documentation-renderer' (bug#80127)
 
-This means that on newer versions of Emacs the external
-'markdown-mode.el' package does not need to be installed to render
-Markdown content.
+The variable 'eglot-documentation-renderer' replaces the now-obsolete
+'eglot-prefer-plaintext' and offers more control over what major mode is
+used to render markdown snippets.  By default, the variable is nil and
+'gfm-view-mode' from NonGNU ELPA's markdown-mode package is used if
+found.  See docstring for more details.
 
 
 * Changes in Eglot 1.23 (2/4/2026)

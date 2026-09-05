@@ -1331,7 +1331,7 @@ remote, otherwise search locally."
     ;; Use 1 rather than file-executable-p to better match the
     ;; behavior of call-process.
     (let ((default-directory (file-name-quote default-directory 'top)))
-      (locate-file command exec-path exec-suffixes 1))))
+      (locate-file command exec-path (default-value 'exec-suffixes) 1))))
 
 (declare-function read-library-name "find-func" nil)
 
@@ -3155,6 +3155,7 @@ since only a single case-insensitive search through the alist is made."
     ("\\.srt\\'" . srecode-template-mode)
     ("\\.prolog\\'" . prolog-mode)
     ("\\.tar\\'" . tar-mode)
+    ("\\(?:\\.rmail\\|\\(?:\\`\\|[/\\]\\)RMAIL\\)\\'" . rmail-mode)
     ;; The list of archive file extensions should be in sync with
     ;; `auto-coding-alist' with `no-conversion' coding system.
     ("\\.\\(\
@@ -3633,9 +3634,11 @@ we don't actually set it to the same mode the buffer already has."
 		   (push (intern (concat (downcase (buffer-substring beg (point))) "-mode"))
 			 modes)))
 	     ;; Simple -*-MODE-*- case.
-	     (push (intern (concat (downcase (buffer-substring (point) end))
-				   "-mode"))
-		   modes))))
+             (and (< (point) end)
+	          (push (intern (concat (downcase
+                                         (buffer-substring (point) end))
+				        "-mode"))
+		        modes)))))
     (or
      ;; If we found modes to use, invoke them now, outside the save-excursion.
      ;; Presume `modes' holds a major mode followed by minor modes.
@@ -3826,6 +3829,7 @@ have no effect."
        (forward-char -3)
        (skip-chars-backward " \t")
        (setq end (point))
+       (setq beg (min beg end))
        (goto-char beg)
        end))))
 
@@ -3990,6 +3994,18 @@ variable `enable-remote-dir-locals' is non-nil."
   :risky t
   :group 'find-file)
 
+(defmacro without-local-variable-queries (&rest body)
+  "Execute BODY without querying user about local variable values.
+In some uses, this is a workaround for the problem that a command
+disables displaying new windows for its own reasons but this also breaks
+`hack-local-variables-confirm'.  See Emacs bug#80528 and bug#81233."
+  (declare (indent 0) (debug t))
+  `(let ((enable-local-variables
+          (if (memq enable-local-variables '(:safe :all nil))
+              enable-local-variables
+            :safe)))
+     ,@body))
+
 (defun hack-local-variables-confirm (all-vars unsafe-vars risky-vars dir-name)
   "Get confirmation before setting up local variable values.
 ALL-VARS is the list of all variables to be set up.
@@ -4054,6 +4070,9 @@ i  -- to ignore the local variables list, and permanently mark these
       ;; Display the buffer and read a choice.
       (save-window-excursion
 	(pop-to-buffer buf '(display-buffer--maybe-at-bottom))
+        (unless (get-buffer-window buf)
+          (error "Failed to display local variables buffer; this is a bug
+Possibly caller should use `without-local-variable-queries', which see."))
 	(let* ((exit-chars '(?y ?n ?\s))
 	       (prompt (format "Please type %s%s: "
 			       (if offer-save
@@ -4304,19 +4323,22 @@ all the specified local variables, but ignores any settings of \"mode:\"."
               (push elem file-local-variables-alist)))
           (hack-local-variables-apply))))))
 
+(defvar-local files--name-of-loading-file nil
+  "File name of the file loaded/evaluated in the buffer.")
+
 (defun internal--get-default-lexical-binding (from)
   (let ((mib (lambda (node) (buttonize node (lambda (_) (info node))
                                   nil "mouse-2: Jump to Info node"))))
     (or (and (bufferp from) (zerop (buffer-size from)))
         (and (stringp from)
              (eql 0 (file-attribute-size (file-attributes from))))
-        (let ((source
-               (if (not (and (bufferp from)
-                             (string-match-p "\\` \\*load\\*\\(-[0-9]+\\)?\\'"
-                                             (buffer-name from))
-                             load-file-name))
-                   from
-                 (abbreviate-file-name load-file-name))))
+        (let* ((fname
+                (if (bufferp from)
+                    (buffer-local-value 'files--name-of-loading-file from)))
+               (source
+                (if fname
+                    (abbreviate-file-name fname)
+                  from)))
           (condition-case nil
               (display-warning
                `(files missing-lexbind-cookie
@@ -4623,7 +4645,9 @@ already the major mode."
      ;; so it is risky to put them on with a local variable list.
      (if (stringp val)
          (set-text-properties 0 (length val) nil val))
-     (set (make-local-variable var) val))))
+     (if (custom-variable-p var)
+         (setopt--set-local var val)
+       (set (make-local-variable var) val)))))
 
 ;;; Handling directory-local variables, aka project settings.
 
@@ -6733,15 +6757,13 @@ Signal an error if unsuccessful."
 Optional arg PARENTS, if non-nil then creates parent dirs as needed.
 
 If called interactively, then PARENTS is non-nil."
-  (interactive
-   (let ((filename (read-file-name "Create empty file: ")))
-     (list filename t)))
-  (when (and (file-exists-p filename) (null parents))
-    (signal 'file-already-exists `("File exists" ,filename)))
-  (let ((paren-dir (file-name-directory filename)))
-    (when (and paren-dir (not (file-exists-p paren-dir)))
-      (make-directory paren-dir parents)))
-  (write-region "" nil filename nil 0))
+  (interactive "FCreate empty file: \np")
+  (when parents
+    (when-let* ((paren-dir (file-name-directory filename)))
+      (make-directory paren-dir :parents)))
+  ;; The `excl' is crucial, in case someone else has created the file in
+  ;; the meantime (TOCTTOU).
+  (write-region "" nil filename nil 0 nil 'excl))
 
 (defconst directory-files-no-dot-files-regexp
   "[^.]\\|\\.\\.\\."
@@ -8484,10 +8506,15 @@ normally equivalent short `-D' option is just passed on to
         ;; error.
         (when (> (file-attribute-size (file-attributes errfile)) 0)
           (defvar dired--ls-error-buffer) ; Pacify byte-compiler.
-          (let ((errbuf (get-buffer-create "*ls error*")))
+          (let ((errbuf (or (get-buffer "*ls error*")
+                            (let ((buf (generate-new-buffer "*ls error*")))
+                              (with-current-buffer buf
+                                (setq buffer-read-only t))
+                              buf))))
             (with-current-buffer errbuf
-              (erase-buffer)
-              (insert-file-contents errfile))
+              (let ((inhibit-read-only t))
+                (erase-buffer)
+                (insert-file-contents errfile)))
             (setq dired--ls-error-buffer errbuf)))
         (defvar dired--ls-error-file) ; Pacify byte-compiler.
         (setq dired--ls-error-file errfile)
