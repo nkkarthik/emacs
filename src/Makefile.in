@@ -276,8 +276,9 @@ LIBMODULES = @LIBMODULES@
 ## emacs-module.o if modules enabled, else empty
 MODULES_OBJ = @MODULES_OBJ@
 
-## The z fleet node objects from ../z/src, or empty when ZNODE=0.  One flag
-## builds all of them.  VPATH finds the sources; see zsrcdir above.
+## The z fleet node objects under ../z/src, or empty when ZNODE=0.  Keeping
+## both source and generated objects there leaves this core build directory to
+## the Emacs fork.  One flag builds all of them.
 ZNODE_OBJ = @ZNODE_OBJ@
 
 ## The same objects PATH-QUALIFIED, for make-docfile only.
@@ -458,6 +459,9 @@ ALL_CXX_CFLAGS = $(EMACS_CFLAGS) \
   $(filter-out $(NON_CXX_CFLAGS),$(WARN_CFLAGS)) $(CXXFLAGS)
 
 .SUFFIXES: .c .m .cc
+../z/src/%.o: DEPFLAGS = -MMD -MF $(@:.o=.d) -MP
+../z/src/%.o: $(zsrcdir)/%.c
+	$(AM_V_CC)$(CC) -c $(CPPFLAGS) $(ALL_CFLAGS) $(PROFILING_CFLAGS) -o $@ $<
 .c.o:
 	$(AM_V_CC)$(CC) -c $(CPPFLAGS) $(ALL_CFLAGS) $(PROFILING_CFLAGS) $<
 .m.o:
@@ -554,7 +558,8 @@ AUTO_DEPEND = @AUTO_DEPEND@
 DEPDIR = deps
 ifeq ($(AUTO_DEPEND),yes)
   DEPFLAGS = -MMD -MF $(DEPDIR)/$*.d -MP
-  -include $(ALLOBJS:%.o=$(DEPDIR)/%.d)
+  CORE_DEP_OBJ = $(filter-out $(ZNODE_OBJ),$(ALLOBJS))
+  -include $(CORE_DEP_OBJ:%.o=$(DEPDIR)/%.d) $(ZNODE_OBJ:.o=.d)
 else
   DEPFLAGS =
   include $(srcdir)/deps.mk

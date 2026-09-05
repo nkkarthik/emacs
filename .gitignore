@@ -180,6 +180,7 @@ src/gl-stamp
 *.elc
 *.eln
 *.o
+/z/src/*.d
 *.res
 *.so
 *.dylib
