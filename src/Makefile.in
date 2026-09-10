@@ -32,13 +32,8 @@ top_srcdir = @top_srcdir@
 top_builddir = @top_builddir@
 # MinGW CPPFLAGS may use this.
 abs_top_srcdir=@abs_top_srcdir@
-## z owns its native code in ../z/src: zmetrics.c, zserver.c, zraft.c.
-## They are built into Emacs but live under z/ so that z can change them
-## without touching the fork's own src/, and so task write_paths scoped to
-## z/ cover them.
-zsrcdir = $(srcdir)/../z/src
 raftsrcdir = $(srcdir)/../a/util/raft/src
-VPATH = $(srcdir) $(zsrcdir) $(raftsrcdir)
+VPATH = $(srcdir) $(raftsrcdir)
 
 # Set these to 'not-set' when they are not set from top-level to please
 # 'load--fixup-all-elns' (bug#70842).
@@ -276,19 +271,6 @@ LIBMODULES = @LIBMODULES@
 ## emacs-module.o if modules enabled, else empty
 MODULES_OBJ = @MODULES_OBJ@
 
-## The z fleet node objects under ../z/src, or empty when ZNODE=0.  Keeping
-## both source and generated objects there leaves this core build directory to
-## the Emacs fork.  One flag builds all of them.
-ZNODE_OBJ = @ZNODE_OBJ@
-
-## The same objects PATH-QUALIFIED, for make-docfile only.
-##
-## make-docfile chdir()s to its -d argument and then opens each object name
-## with .o mapped to .c, so a bare "znode-lisp.o" would be looked for in
-## src/ and not found.  Only the file carrying DEFUNs needs this: znode.c
-## deliberately has no Lisp linkage at all.
-ZNODE_DOC_OBJ = @ZNODE_DOC_OBJ@
-
 XRANDR_LIBS = @XRANDR_LIBS@
 XRANDR_CFLAGS = @XRANDR_CFLAGS@
 
@@ -437,7 +419,7 @@ NON_CXX_CFLAGS = -Wmissing-prototypes -Wnested-externs -Wold-style-definition \
 # -Demacs makes some files produce the correct version for use in Emacs.
 # MYCPPFLAGS is for by-hand Emacs-specific overrides, e.g.,
 # "make MYCPPFLAGS='-DDBUS_DEBUG'".
-EMACS_CFLAGS=-Demacs $(MYCPPFLAGS) -I. -I$(srcdir) -I$(zsrcdir) -I$(raftsrcdir) \
+EMACS_CFLAGS=-Demacs $(MYCPPFLAGS) -I. -I$(srcdir) -I$(raftsrcdir) \
   -I$(lib) -I$(top_srcdir)/lib \
   $(C_SWITCH_MACHINE) $(C_SWITCH_SYSTEM) $(C_SWITCH_X_SITE) \
   $(GNUSTEP_CFLAGS) $(CFLAGS_SOUND) $(RSVG_CFLAGS) $(IMAGEMAGICK_CFLAGS) \
@@ -459,9 +441,6 @@ ALL_CXX_CFLAGS = $(EMACS_CFLAGS) \
   $(filter-out $(NON_CXX_CFLAGS),$(WARN_CFLAGS)) $(CXXFLAGS)
 
 .SUFFIXES: .c .m .cc
-../z/src/%.o: DEPFLAGS = -MMD -MF $(@:.o=.d) -MP
-../z/src/%.o: $(zsrcdir)/%.c
-	$(AM_V_CC)$(CC) -c $(CPPFLAGS) $(ALL_CFLAGS) $(PROFILING_CFLAGS) -o $@ $<
 .c.o:
 	$(AM_V_CC)$(CC) -c $(CPPFLAGS) $(ALL_CFLAGS) $(PROFILING_CFLAGS) $<
 .m.o:
@@ -491,16 +470,7 @@ base_obj = dispnew.o frame.o scroll.o xdisp.o menu.o $(XMENU_OBJ) window.o     \
 	$(HAIKU_OBJ) $(PGTK_OBJ) $(ANDROID_OBJ)
 doc_obj = $(base_obj) $(NS_OBJC_OBJ)
 
-## The z node objects LINK but are not handed to make-docfile through this
-## list.  They must NOT be in base_obj: doc_obj is derived from it, and
-## make-docfile maps each .o to a .c relative to srcdir -- so znode.o became a
-## search for src/znode.c, which does not exist, and gl-stamp died with
-## "znode.c: No such file or directory".
-##
-## Only znode-lisp.c carries DEFUNs, and it reaches make-docfile by path
-## through ZNODE_DOC_OBJ instead.  The sources live in ../z/src and are found
-## for compilation by VPATH; see zsrcdir at the top.
-obj = $(doc_obj) $(HAIKU_CXX_OBJ) $(ZNODE_OBJ)
+obj = $(doc_obj) $(HAIKU_CXX_OBJ)
 
 ## Object files used on some machine or other.
 ## These go in the DOC file on all machines in case they are needed.
@@ -558,8 +528,7 @@ AUTO_DEPEND = @AUTO_DEPEND@
 DEPDIR = deps
 ifeq ($(AUTO_DEPEND),yes)
   DEPFLAGS = -MMD -MF $(DEPDIR)/$*.d -MP
-  CORE_DEP_OBJ = $(filter-out $(ZNODE_OBJ),$(ALLOBJS))
-  -include $(CORE_DEP_OBJ:%.o=$(DEPDIR)/%.d) $(ZNODE_OBJ:.o=.d)
+  -include $(ALLOBJS:%.o=$(DEPDIR)/%.d)
 else
   DEPFLAGS =
   include $(srcdir)/deps.mk
@@ -693,11 +662,11 @@ endif
 ## for the first time, this prevents any variation between configurations
 ## in the contents of the DOC file.
 ##
-$(etc)/DOC: $(libsrc)/make-docfile$(EXEEXT) $(doc_obj) $(ZNODE_OBJ)
+$(etc)/DOC: $(libsrc)/make-docfile$(EXEEXT) $(doc_obj)
 	$(AM_V_GEN)$(MKDIR_P) $(etc)
 	$(AM_V_at)rm -f $(etc)/DOC
 	$(AM_V_at)$(libsrc)/make-docfile -d $(srcdir) \
-	  $(SOME_MACHINE_OBJECTS) $(doc_obj) $(ZNODE_DOC_OBJ) > $(etc)/DOC
+	  $(SOME_MACHINE_OBJECTS) $(doc_obj) > $(etc)/DOC
 
 $(libsrc)/make-docfile$(EXEEXT) $(libsrc)/make-fingerprint$(EXEEXT): \
   $(hostlib)/libgnu.a
@@ -710,14 +679,10 @@ buildobj.h: Makefile
 	done >$@.tmp
 	$(AM_V_at)mv $@.tmp $@
 
-## New DEFUNs in the out-of-tree znode Lisp boundary must regenerate
-## globals.h before that object is compiled.
-ZNODE_GLOBAL_SOURCE = $(if $(ZNODE_DOC_OBJ),$(top_srcdir)/z/src/znode-lisp.c)
-GLOBAL_SOURCES = $(base_obj:.o=.c) $(NS_OBJC_OBJ:.o=.m) $(ZNODE_GLOBAL_SOURCE)
+GLOBAL_SOURCES = $(base_obj:.o=.c) $(NS_OBJC_OBJ:.o=.m)
 
 gl-stamp: $(libsrc)/make-docfile$(EXEEXT) $(GLOBAL_SOURCES)
-	$(AM_V_GLOBALS)$(libsrc)/make-docfile -d $(srcdir) -g $(doc_obj) \
-	  $(ZNODE_DOC_OBJ) > globals.tmp
+	$(AM_V_GLOBALS)$(libsrc)/make-docfile -d $(srcdir) -g $(doc_obj) > globals.tmp
 	$(AM_V_at)$(top_srcdir)/build-aux/move-if-change globals.tmp globals.h
 	$(AM_V_at)echo timestamp > $@
 
