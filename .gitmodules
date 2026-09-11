@@ -16,3 +16,6 @@
 [submodule "x/termux-app"]
 	path = x/termux-app
 	url = https://github.com/termux/termux-app.git
+[submodule "x/llama.cpp"]
+	path = x/llama.cpp
+	url = https://github.com/ggml-org/llama.cpp.git
