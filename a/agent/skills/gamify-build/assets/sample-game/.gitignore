@@ -1,0 +1,7 @@
+# Copies and outputs: new_game.py restores the kit; check.py rebuilds the rest.
+dist/
+src/kit/
+tests/kit/
+docs/screenshots/
+docs/screens.json
+docs/verification-*.json
