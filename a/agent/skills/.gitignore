@@ -1,4 +1,0 @@
-# Client-managed bundled skills stay local.
-.system/
-__pycache__/
-*.py[cod]

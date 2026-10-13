@@ -419,3 +419,7 @@ checkpoints/
 # each time reverting an intentional trim (546632 <- 413528). The generator
 # writes ~/z/corpus/ already; the repo copy was a duplicate that fought it.
 *.jsonl
+
+# The shared agent skills live in ~/v/r/skills (Syncthing), not Git
+# (71a, 2026-10-13); a/agent/skills is a local link to that folder.
+/a/agent/skills
